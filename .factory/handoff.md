@@ -29,6 +29,10 @@
    accessible labels even before they are painted. Three warning-free mobile
    Lighthouse runs were 100 Performance / 100 Accessibility / 100 Best
    Practices, with 1.6 s LCP, 0 CLS, and 0/0/20 ms TBT.
+4. **Installed-app update continuity:** the worker cache and manifest start URL
+   are now v3 together, so clients controlled by the prior v2 worker discover
+   and install this repair instead of continuing to serve its old cache-first
+   shell.
 
 All earlier accepted behavior remains: expiring receipt validation, dialable
 phone validation, cancellation new-time hiding, privacy-preserving fragment
@@ -45,6 +49,9 @@ transit-poster visual system.
   390 × 844 mobile Chromium.
 - The same browser suite stubs an invalid Sociobot license return, verifies the
   URL token is stripped, and proves the inactive notice persists after reload.
+- `tests/deployment.test.ts` also requires the manifest start version to match
+  the versioned service-worker cache, preventing a future bundle-only deploy
+  from stranding installed clients on an older shell.
 - Existing end-to-end coverage continues to exercise normal card → customer
   receipt → acknowledgement import, expiry attacks, invalid phone recovery,
   cancellation, keyboard skip focus, Axe, IndexedDB persistence, and explicit
@@ -65,7 +72,7 @@ npm run test:e2e
 Results:
 
 - Clean install completed: 0 full and production audit vulnerabilities.
-- Vitest: 11/11 passed across the codec/import and deployment-policy suites.
+- Vitest: 12/12 passed across the codec/import and deployment-policy suites.
 - TypeScript: `tsc --noEmit` passed. No separate lint script exists; the project
   is strict TypeScript and the production build performs the same type check.
 - Production build passed and produced `dist/index.html`: initial app JS 35.91 KB
@@ -102,16 +109,17 @@ server-side per-client/token rate limit before a full release verdict.
 
 ## Deployment and post-deploy verification — 2026-08-28 UTC
 
-- Pushed `main` through handoff commit `9a09473c` and deployed `dist/` to the
-  existing Azure Static Web App target `sf-reschedule-proof` (production). The
-  deployment completed successfully at
+- The final v3 `dist/` is deployed to the existing Azure Static Web App target
+  `sf-reschedule-proof` (production). The target's deployment origin is
   `https://brave-smoke-0ea15c610.7.azurestaticapps.net`; the configured custom
   origin is https://reschedule-proof.sociobot.in/.
 - Live identity matched the local app artifact byte-for-byte:
   `dist/assets/app-BhEwXpFP.js` and the deployed asset both SHA-256 to
   `c2d2d1ad708a7c0c80f011741584e560cffd7054a721f4b1d4205cf7e767ee4e`.
-  The local/deployed service worker SHA-256 is
-  `4d70b36253f62341e8832458f6c19468d0167f3e63191a8d77814a569778e327`.
+  The v3 local/deployed service worker SHA-256 is
+  `94075c80ec5cab40cada8d71ddd69a4c4cb13a5db101eade18e457b3859f154b`;
+  the matching v3 manifest SHA-256 is
+  `a841b700de05cf32ecb67163fb357e38741dccd922b47179b186a953ed95517a`.
 - Live `/`, app JS, `sw.js`, and manifest returned HTTP 200. The app asset was
   `public, max-age=31536000, immutable`; worker was `no-cache`; manifest was
   `application/manifest+json`. CSP includes `frame-ancestors 'none'`, with

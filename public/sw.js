@@ -1,4 +1,4 @@
-const VERSION = 'move-confirmed-v2';
+const VERSION = 'move-confirmed-v3';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const CORE = [
