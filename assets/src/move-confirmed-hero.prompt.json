@@ -1,0 +1,9 @@
+{
+  "created": "2026-08-28",
+  "generator": "/opt/fleet/lib/gen-image.sh",
+  "deployment": "factory-image",
+  "size": "1536x1024",
+  "quality": "high",
+  "prompt": "Art-deco transit poster illustration for a privacy-first appointment reschedule utility. Two geometric station-clock discs represent an old stop and a new stop, connected by one clear stepped rail line ending in a small punched confirmation seal. Screen-printed ink on warm cream paper, deep petrol teal, vermilion red and aged brass, bold 1930s geometry, subtle paper grain and offset registration, frontal wide composition, strong silhouette, generous calm negative space. No text, no letters, no numbers, no logos, no watermark, no people, no brands, no UI screenshot, no gradient.",
+  "review": "Accepted: clean clocks and route, no text or logos, no human figures, no seam defects, palette matches design tokens."
+}
