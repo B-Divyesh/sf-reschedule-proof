@@ -255,7 +255,7 @@ async function renderOwner(): Promise<void> {
   app.innerHTML = shell(`
     <section class="hero"><div class="hero-copy"><p class="route-kicker"><span>OLD TIME</span><i aria-hidden="true"></i><span>NEW TIME</span></p><h1>Make appointment changes clear and confirmed.</h1><p class="hero-lede">For one-person appointment businesses: send a private change card and keep the customer’s receipt beside your calendar.</p>${heroActions}${heroFacts}</div><figure class="hero-art"><picture><source srcset="/assets/move-confirmed-hero-768.webp 768w, /assets/move-confirmed-hero-1280.webp 1280w" sizes="(max-width: 760px) 100vw, 48vw" type="image/webp" /><img src="/assets/move-confirmed-hero-1280.webp" width="1280" height="853" fetchpriority="high" decoding="async" alt="Two stylized station clocks connected by a red and teal route ending in a confirmation seal" /></picture><figcaption>From changed stop to confirmed arrival.</figcaption></figure></section>
     ${dashboard(records)}
-    <div id="owner-lower" class="owner-lower" aria-busy="true"></div>
+    <div id="owner-lower" class="owner-lower" aria-busy="true" inert></div>
   `);
   document.title = DEMO_MODE ? 'Demo — Move Confirmed' : 'Move Confirmed — Proof for changed appointments';
   const canonicalUrl = `https://reschedule-proof.sociobot.in${DEMO_MODE ? '/demo' : '/'}`;
@@ -277,8 +277,9 @@ async function renderOwner(): Promise<void> {
     if (renderVersion !== ownerRenderVersion) return;
     lower.insertAdjacentHTML('beforeend', stage);
   }
-  lower.removeAttribute('aria-busy');
   bindOwner(records);
+  lower.removeAttribute('inert');
+  lower.removeAttribute('aria-busy');
   if (['#create', '#how', '#history'].includes(location.hash)) document.querySelector<HTMLElement>(location.hash)?.scrollIntoView();
   if (!DEMO_MODE && getLicense() && !licenseReconciled && !licenseReconciling) void reconcileLicense();
 }
