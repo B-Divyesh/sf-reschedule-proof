@@ -112,7 +112,8 @@ server-side per-client/token rate limit before a full release verdict.
 - The final v3 `dist/` is deployed to the existing Azure Static Web App target
   `sf-reschedule-proof` (production). The target's deployment origin is
   `https://brave-smoke-0ea15c610.7.azurestaticapps.net`; the configured custom
-  origin is https://reschedule-proof.sociobot.in/.
+  origin is https://reschedule-proof.sociobot.in/. Final PWA deployment commit:
+  `4a6b92e0f3b1d7f4b951769874ab88a0b5bdf716`.
 - Live identity matched the local app artifact byte-for-byte:
   `dist/assets/app-BhEwXpFP.js` and the deployed asset both SHA-256 to
   `c2d2d1ad708a7c0c80f011741584e560cffd7054a721f4b1d4205cf7e767ee4e`.
@@ -120,6 +121,7 @@ server-side per-client/token rate limit before a full release verdict.
   `94075c80ec5cab40cada8d71ddd69a4c4cb13a5db101eade18e457b3859f154b`;
   the matching v3 manifest SHA-256 is
   `a841b700de05cf32ecb67163fb357e38741dccd922b47179b186a953ed95517a`.
+  Both were fetched from the custom production origin after the final deploy.
 - Live `/`, app JS, `sw.js`, and manifest returned HTTP 200. The app asset was
   `public, max-age=31536000, immutable`; worker was `no-cache`; manifest was
   `application/manifest+json`. CSP includes `frame-ancestors 'none'`, with
