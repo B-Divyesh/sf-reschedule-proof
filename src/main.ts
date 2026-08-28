@@ -3,6 +3,7 @@ import { cardUrl, decodePayload, humanDate, parseIcs, randomToken, receiptUrl, r
 import { deleteRecord, getRecord, getRecords, getSettings, replaceRecords, saveRecord, saveSettings } from './db';
 import { buyUrl, cachedUnlocked, getLicense, saveLicense, storeReturnedLicense, verifyLicense } from './license';
 import type { BusinessSettings, CardPayload, ChangeRecord, NotifyChannel, ReceiptPayload } from './types';
+import { normalizePhone, receiptVerdict, validEmail } from './validation';
 
 const appElement = document.querySelector<HTMLDivElement>('#app');
 if (!appElement) throw new Error('App root is missing.');
@@ -44,7 +45,7 @@ function shell(content: string, mode: 'owner' | 'customer' = 'owner'): string {
         ${mode === 'owner' ? '<button id="install-button" class="text-button" type="button" hidden>Install app</button>' : ''}
       </div>
     </header>
-    <main id="main">${content}</main>
+    <main id="main" tabindex="-1">${content}</main>
     <footer class="site-footer">
       <div><strong>Move Confirmed</strong><span>Proof of change, kept on your device.</span></div>
       <nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="https://github.com/B-Divyesh/sf-reschedule-proof" rel="noreferrer">Source</a></nav>
@@ -71,8 +72,7 @@ async function copyText(value: string): Promise<void> {
   } catch {
     const field = document.createElement('textarea');
     field.value = value;
-    field.style.position = 'fixed';
-    field.style.opacity = '0';
+    field.className = 'clipboard-fallback';
     document.body.append(field);
     field.select();
     document.execCommand('copy');
@@ -140,15 +140,17 @@ function createdPanel(record: ChangeRecord, settings: BusinessSettings, unlocked
       .replaceAll('{change}', state)
       .replaceAll('{link}', url)
     : defaultMessage;
-  const sms = `sms:${record.customerPhone.replace(/[^+\d]/g, '')}?body=${encodeURIComponent(message)}`;
-  const email = `mailto:${encodeURIComponent(record.customerEmail)}?subject=${encodeURIComponent(`Change to ${record.title}`)}&body=${encodeURIComponent(message)}`;
+  const phoneRecipient = normalizePhone(record.customerPhone);
+  const emailRecipient = validEmail(record.customerEmail) ? record.customerEmail.trim() : null;
+  const sms = phoneRecipient ? `sms:${phoneRecipient}?body=${encodeURIComponent(message)}` : '';
+  const email = emailRecipient ? `mailto:${encodeURIComponent(emailRecipient)}?subject=${encodeURIComponent(`Change to ${record.title}`)}&body=${encodeURIComponent(message)}` : '';
   return `<section class="dispatch-panel" id="dispatch" aria-labelledby="dispatch-title">
     <div class="dispatch-stamp" aria-hidden="true">READY</div>
     <p class="eyebrow">Card prepared</p><h2 id="dispatch-title">Send the change through the customer’s composer.</h2>
     <p>We can open the message; you stay in control and press Send. Opening a composer is logged as a notification attempt, not claimed as delivery.</p>
     <div class="dispatch-actions">
-      ${record.customerPhone ? `<a class="primary notify-link" data-channel="sms" data-id="${esc(record.id)}" href="${esc(sms)}">Open SMS ${icon('arrow')}</a>` : ''}
-      ${record.customerEmail ? `<a class="secondary notify-link" data-channel="email" data-id="${esc(record.id)}" href="${esc(email)}">Open email</a>` : ''}
+      ${sms ? `<a class="primary notify-link" data-channel="sms" data-id="${esc(record.id)}" href="${esc(sms)}">Open SMS ${icon('arrow')}</a>` : ''}
+      ${email ? `<a class="secondary notify-link" data-channel="email" data-id="${esc(record.id)}" href="${esc(email)}">Open email</a>` : ''}
       <button class="secondary copy-card" data-id="${esc(record.id)}" type="button">Copy confirmation link</button>
     </div>
     <label class="link-label" for="card-link">Private card link</label><div class="copy-field"><input id="card-link" readonly value="${esc(url)}" /><button class="text-button copy-card" data-id="${esc(record.id)}" type="button">Copy</button></div>
@@ -243,7 +245,10 @@ function renderCard(encoded: string): void {
       ${expired ? `<div class="expired-note">${icon('signal')}<p>For your privacy, this link expired on ${humanDate(payload.expiresAt)}. Contact ${esc(payload.businessName)} directly to confirm the appointment.</p></div>` : `<div class="appointment-title"><span>${payload.type === 'cancelled' ? 'Cancellation' : 'Reschedule'}</span><h2>${esc(payload.title)}</h2></div>${cardState(payload)}${payload.location ? `<p class="card-detail"><strong>Location</strong>${esc(payload.location)}</p>` : ''}${payload.note ? `<p class="card-detail"><strong>Note</strong>${esc(payload.note)}</p>` : ''}<button id="acknowledge" class="primary acknowledge" type="button">I’ve seen this change ${icon('check')}</button><p class="privacy-note">This sends nothing automatically. You’ll choose SMS or email to return a timestamped receipt.</p><div id="receipt-actions"></div>`}
       <p class="expiry">Private link · Expires ${humanDate(payload.expiresAt)}</p></div><a class="customer-home" href="/">What is Move Confirmed?</a></section>`, 'customer');
     bindCommon();
-    document.querySelector('#acknowledge')?.addEventListener('click', () => showReceiptActions(payload));
+    document.querySelector('#acknowledge')?.addEventListener('click', () => {
+      if (Date.now() > new Date(payload.expiresAt).getTime()) void route();
+      else showReceiptActions(payload);
+    });
   } catch {
     app.innerHTML = shell(`<section class="customer-page"><div class="customer-ticket error-ticket">${icon('signal')}<h1>This change card can’t be read.</h1><p>The link may be incomplete. Ask the business to send a fresh confirmation link.</p></div><a class="customer-home" href="/">Open Move Confirmed</a></section>`, 'customer');
     bindCommon();
@@ -256,7 +261,9 @@ function showReceiptActions(payload: CardPayload): void {
   const message = `Acknowledged: ${payload.title} change at ${humanDate(receipt.acknowledgedAt)}. Add the receipt to your Move Confirmed log: ${url}`;
   const target = document.querySelector<HTMLElement>('#receipt-actions');
   if (!target) return;
-  target.innerHTML = `<div class="receipt-ready"><span class="punch-stamp">SEEN</span><h2>Receipt ready</h2><p>Return it to ${esc(payload.businessName)} so their local log can mark this change acknowledged.</p><div class="dispatch-actions">${payload.replyPhone ? `<a class="primary" href="sms:${payload.replyPhone.replace(/[^+\d]/g, '')}?body=${encodeURIComponent(message)}">Text receipt ${icon('arrow')}</a>` : ''}${payload.replyEmail ? `<a class="secondary" href="mailto:${encodeURIComponent(payload.replyEmail)}?subject=${encodeURIComponent(`Acknowledged: ${payload.title}`)}&body=${encodeURIComponent(message)}">Email receipt</a>` : ''}<button id="copy-receipt" class="secondary" type="button">Copy receipt link</button></div></div>`;
+  const replyPhone = normalizePhone(payload.replyPhone);
+  const replyEmail = validEmail(payload.replyEmail) ? payload.replyEmail!.trim() : null;
+  target.innerHTML = `<div class="receipt-ready"><span class="punch-stamp">SEEN</span><h2>Receipt ready</h2><p>Return it to ${esc(payload.businessName)} so their local log can mark this change acknowledged.</p><div class="dispatch-actions">${replyPhone ? `<a class="primary" href="sms:${replyPhone}?body=${encodeURIComponent(message)}">Text receipt ${icon('arrow')}</a>` : ''}${replyEmail ? `<a class="secondary" href="mailto:${encodeURIComponent(replyEmail)}?subject=${encodeURIComponent(`Acknowledged: ${payload.title}`)}&body=${encodeURIComponent(message)}">Email receipt</a>` : ''}<button id="copy-receipt" class="secondary" type="button">Copy receipt link</button></div></div>`;
   document.querySelector<HTMLButtonElement>('#acknowledge')!.disabled = true;
   document.querySelector('#copy-receipt')?.addEventListener('click', async () => {
     await copyText(url); announce('Acknowledgement receipt link copied.');
@@ -270,13 +277,23 @@ async function renderReceipt(encoded: string): Promise<void> {
     const receipt = decodePayload<ReceiptPayload>(encoded);
     if (receipt?.v !== 1 || !receipt.id || !receipt.token || !receipt.acknowledgedAt) throw new Error('Invalid receipt');
     const record = await getRecord(receipt.id);
-    const valid = record && record.token === receipt.token && new Date(receipt.acknowledgedAt).getTime() <= Date.now() + 300_000;
-    app.innerHTML = shell(`<section class="receipt-import"><p class="eyebrow">Incoming acknowledgement</p><h1>${valid ? 'The receipt matches your local change.' : 'This receipt does not match this device.'}</h1>${valid ? `<div class="receipt-preview"><span class="punch-stamp">SEEN</span><h2>${esc(record.title)}</h2><p>${esc(record.customerName)} · ${humanDate(receipt.acknowledgedAt)}</p></div><button id="import-receipt" class="primary" type="button">Add acknowledgement to log ${icon('check')}</button><p>The receipt timestamp and verification token will be kept in this browser.</p>` : `<div class="expired-note">${icon('signal')}<p>Open this link on the device that created the original card. No matching customer record was imported or created.</p></div>`}<a class="inline-action" href="#/">Return to local log ${icon('arrow')}</a></section>`);
+    const verdict = receiptVerdict(record, receipt);
+    const valid = verdict === 'valid';
+    const matchedRecord = valid ? record! : undefined;
+    const title = valid ? 'The receipt matches your local change.' : verdict === 'expired' ? 'This confirmation card has expired.' : 'This receipt does not match this device.';
+    const failure = verdict === 'expired'
+      ? 'The acknowledgement arrived after the card’s privacy deadline, so the local proof log was not changed. Create and send a fresh card if confirmation is still needed.'
+      : 'Open this link on the device that created the original card. No matching customer record was imported or created.';
+    app.innerHTML = shell(`<section class="receipt-import"><p class="eyebrow">Incoming acknowledgement</p><h1>${title}</h1>${matchedRecord ? `<div class="receipt-preview"><span class="punch-stamp">SEEN</span><h2>${esc(matchedRecord.title)}</h2><p>${esc(matchedRecord.customerName)} · ${humanDate(receipt.acknowledgedAt)}</p></div><button id="import-receipt" class="primary" type="button">Add acknowledgement to log ${icon('check')}</button><p>The receipt timestamp and verification token will be kept in this browser.</p>` : `<div class="expired-note">${icon('signal')}<p>${failure}</p></div>`}<a class="inline-action" href="#/">Return to local log ${icon('arrow')}</a></section>`);
     bindCommon();
     document.querySelector('#import-receipt')?.addEventListener('click', async () => {
-      if (!record) return;
-      record.acknowledgement = { at: receipt.acknowledgedAt, method: 'receipt' };
-      await saveRecord(record);
+      const currentRecord = await getRecord(receipt.id);
+      if (receiptVerdict(currentRecord, receipt) !== 'valid' || !currentRecord) {
+        await renderReceipt(encoded);
+        return;
+      }
+      currentRecord.acknowledgement = { at: receipt.acknowledgedAt, method: 'receipt' };
+      await saveRecord(currentRecord);
       history.replaceState({}, '', `${location.pathname}#/`);
       lastCreated = null;
       await renderOwner();
@@ -358,7 +375,9 @@ function bindOwner(records: ChangeRecord[]): void {
     const newValue = String(data.get('newStart') ?? '');
     const expiresAt = new Date(String(data.get('expiresAt')));
     let message = '';
-    if (!phone && !email) message = 'Add the customer’s mobile or email so you can open a message composer.';
+    if (phone && !normalizePhone(phone)) message = 'Enter a valid customer mobile number with 7 to 15 digits, or clear it and use email.';
+    else if (replyPhone && !normalizePhone(replyPhone)) message = 'Enter a valid return mobile number with 7 to 15 digits, or clear it and use email.';
+    else if (!phone && !email) message = 'Add the customer’s mobile or email so you can open a message composer.';
     else if (!replyPhone && !replyEmail) message = 'Add your mobile or email so the customer can return their acknowledgement.';
     else if (type === 'rescheduled' && (!newValue || new Date(newValue).getTime() === oldStart.getTime())) message = 'Choose a new time that differs from the original time.';
     else if (expiresAt.getTime() <= Date.now()) message = 'Choose a link expiry in the future.';
@@ -366,11 +385,11 @@ function bindOwner(records: ChangeRecord[]): void {
     const record: ChangeRecord = {
       id: crypto.randomUUID(), token: randomToken(), type,
       title: String(data.get('title')).trim(), customerName: String(data.get('customerName')).trim(),
-      customerPhone: phone, customerEmail: email, oldStart: oldStart.toISOString(),
+      customerPhone: normalizePhone(phone) ?? '', customerEmail: email, oldStart: oldStart.toISOString(),
       newStart: type === 'rescheduled' ? new Date(newValue).toISOString() : undefined,
       location: String(data.get('location') ?? '').trim() || undefined,
       note: String(data.get('note') ?? '').trim() || undefined,
-      businessName: String(data.get('businessName')).trim(), replyPhone: replyPhone || undefined,
+      businessName: String(data.get('businessName')).trim(), replyPhone: normalizePhone(replyPhone) ?? undefined,
       replyEmail: replyEmail || undefined, createdAt: new Date().toISOString(),
       expiresAt: expiresAt.toISOString(), notifications: []
     };
@@ -382,7 +401,8 @@ function bindOwner(records: ChangeRecord[]): void {
   });
   document.querySelectorAll<HTMLAnchorElement>('.notify-link').forEach((element) => element.addEventListener('click', async (event) => {
     event.preventDefault();
-    await logNotification(element.dataset.id!, element.dataset.channel as NotifyChannel);
+    const logged = await logNotification(element.dataset.id!, element.dataset.channel as NotifyChannel);
+    if (!logged) { announce('That recipient is not valid. Edit the contact and create a fresh card.'); return; }
     location.href = element.href;
   }));
   document.querySelectorAll<HTMLButtonElement>('.copy-card').forEach((button) => button.addEventListener('click', async () => {
@@ -427,10 +447,13 @@ function bindOwner(records: ChangeRecord[]): void {
   });
 }
 
-async function logNotification(id: string, channel: NotifyChannel): Promise<void> {
-  const record = await getRecord(id); if (!record) return;
+async function logNotification(id: string, channel: NotifyChannel): Promise<boolean> {
+  const record = await getRecord(id); if (!record) return false;
+  if (channel === 'sms' && !normalizePhone(record.customerPhone)) return false;
+  if (channel === 'email' && !validEmail(record.customerEmail)) return false;
   record.notifications.push({ channel, at: new Date().toISOString() }); await saveRecord(record);
   if (lastCreated?.id === record.id) lastCreated = record;
+  return true;
 }
 
 async function reconcileLicense(): Promise<void> {
@@ -451,11 +474,15 @@ window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault(); installPrompt = event as BeforeInstallPromptEvent;
   const button = document.querySelector<HTMLButtonElement>('#install-button'); if (button) button.hidden = false;
 });
-window.addEventListener('hashchange', () => void route());
+window.addEventListener('hashchange', () => {
+  if (location.hash === '#main' || location.hash === '#create') return;
+  void route();
+});
 
 storeReturnedLicense();
 void route().catch(() => {
-  app.innerHTML = shell(`<section class="receipt-import"><h1>Your local log could not open.</h1><p>Reload the page. If the problem continues, export browser data before clearing site storage.</p><button class="primary" onclick="location.reload()">Reload app</button></section>`);
+  app.innerHTML = shell(`<section class="receipt-import"><h1>Your local log could not open.</h1><p>Reload the page. If the problem continues, export browser data before clearing site storage.</p><button id="reload-app" class="primary" type="button">Reload app</button></section>`);
+  document.querySelector('#reload-app')?.addEventListener('click', () => location.reload());
 });
 
 if ('serviceWorker' in navigator) {

@@ -1,8 +1,8 @@
-const VERSION = 'move-confirmed-v1';
+const VERSION = 'move-confirmed-v2';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const CORE = [
-  '/', '/index.html', '/privacy/', '/terms/', '/offline.html',
+  '/', '/index.html', '/privacy/', '/terms/', '/offline.html', '/offline.css',
   '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png',
   '/icons/icon-512.png', '/icons/icon-maskable-512.png',
   '/assets/move-confirmed-hero-768.webp', '/assets/move-confirmed-hero-1280.webp'

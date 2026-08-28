@@ -1,0 +1,21 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+  color: #172a2b;
+  background: #f5ebcf;
+  font: 18px/1.5 Arial, sans-serif;
+}
+main {
+  max-width: 620px;
+  padding: 40px;
+  background: #fff8e7;
+  border: 4px solid #172a2b;
+  box-shadow: 10px 10px 0 #b93724;
+}
+h1 { font: 700 48px/1.05 Georgia, serif; }
+a { color: #16615b; font-weight: 700; }
+:focus-visible { outline: 3px solid #b93724; outline-offset: 3px; }

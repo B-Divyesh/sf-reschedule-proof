@@ -1,5 +1,45 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+
+async function fillChangeForm(page: Page) {
+  const original = new Date(Date.now() + 86_400_000);
+  const moved = new Date(original.getTime() + 3_600_000);
+  const expiry = new Date(Date.now() + 2 * 86_400_000);
+  const localInput = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  await page.getByLabel('Appointment name').fill('Piano lesson');
+  await page.getByLabel('Customer first name').fill('Maya');
+  await page.getByLabel('Customer mobile').fill('+15551234567');
+  await page.getByLabel('Original time').fill(localInput(original));
+  await page.getByLabel('New time').fill(localInput(moved));
+  await page.getByLabel('Business name').fill('North Street Music');
+  await page.getByLabel('Your mobile').fill('+15557654321');
+  await page.getByLabel('Link expires').fill(localInput(expiry));
+}
+
+async function expireOnlyRecord(page: Page) {
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('move-confirmed', 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const transaction = db.transaction('records', 'readwrite');
+    const store = transaction.objectStore('records');
+    const records = await new Promise<any[]>((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    records[0].expiresAt = new Date(Date.now() - 60_000).toISOString();
+    store.put(records[0]);
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    db.close();
+  });
+}
 
 test('creates and shares a reschedule card', async ({ page }) => {
   await page.goto('/');
@@ -32,6 +72,14 @@ test('has no serious accessibility violations', async ({ page }) => {
   expect(results.violations.filter((violation) => ['critical', 'serious'].includes(violation.impact ?? ''))).toEqual([]);
 });
 
+test('moves keyboard focus from the skip link to the main task', async ({ page }) => {
+  await page.goto('/');
+  await page.keyboard.press('Tab');
+  await expect(page.locator('.skip-link')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('main')).toBeFocused();
+});
+
 test('app shell and local log work offline after installation', async ({ page, context }) => {
   await page.goto('/');
   await page.evaluate(() => navigator.serviceWorker.ready);
@@ -40,4 +88,57 @@ test('app shell and local log work offline after installation', async ({ page, c
   await page.reload();
   await expect(page.getByRole('heading', { name: /appointment moved/i })).toBeVisible();
   await expect(page.getByText('Offline ready')).toBeVisible();
+});
+
+test('rejects a delayed genuine receipt after its local card expires', async ({ page }) => {
+  await page.goto('/');
+  await fillChangeForm(page);
+  await page.getByRole('button', { name: /Create confirmation card/ }).click();
+  const cardLink = await page.locator('#card-link').inputValue();
+  await page.goto(cardLink);
+  await page.getByRole('button', { name: /I’ve seen this change/ }).click();
+  const smsReceipt = await page.locator('a[href^="sms:"]').getAttribute('href');
+  const receiptLink = decodeURIComponent(smsReceipt!.split('?body=')[1]!).match(/https?:\/\/\S+#\/receipt\/\S+/)![0];
+  await expireOnlyRecord(page);
+
+  await page.goto(receiptLink);
+  await expect(page.getByRole('heading', { name: /expired/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Add acknowledgement/ })).toHaveCount(0);
+});
+
+test('rejects a hand-crafted current receipt for an expired local card', async ({ page }) => {
+  await page.goto('/');
+  await fillChangeForm(page);
+  await page.getByRole('button', { name: /Create confirmation card/ }).click();
+  const cardLink = await page.locator('#card-link').inputValue();
+  const encodedCard = cardLink.split('#/card/')[1];
+  const card = JSON.parse(Buffer.from(encodedCard.replaceAll('-', '+').replaceAll('_', '/'), 'base64').toString('utf8'));
+  await expireOnlyRecord(page);
+  const receipt = { v: 1, id: card.id, token: card.token, acknowledgedAt: new Date().toISOString() };
+  const encodedReceipt = Buffer.from(JSON.stringify(receipt)).toString('base64url');
+
+  await page.goto(`/#/receipt/${encodedReceipt}`);
+  await expect(page.getByRole('heading', { name: /expired/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Add acknowledgement/ })).toHaveCount(0);
+});
+
+test('rejects malformed customer and reply phones without creating or logging a card', async ({ page }) => {
+  await page.goto('/');
+  await fillChangeForm(page);
+  await page.getByLabel('Customer mobile').fill('not-a-number');
+  await page.getByLabel('Your mobile').fill('reply');
+  await page.getByRole('button', { name: /Create confirmation card/ }).click();
+
+  await expect(page.getByRole('alert')).toContainText('valid customer mobile');
+  await expect(page.getByRole('heading', { name: /Send the change/ })).toHaveCount(0);
+  await expect(page.getByText('No changes logged yet')).toBeVisible();
+  await expect(page.locator('a[href^="sms:?body="]')).toHaveCount(0);
+});
+
+test('hides and disables the new time control for cancellations', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('Cancelled', { exact: true }).click();
+  const label = page.locator('#new-time-label');
+  await expect(label).toBeHidden();
+  await expect(page.getByLabel('New time')).not.toHaveAttribute('required', '');
 });

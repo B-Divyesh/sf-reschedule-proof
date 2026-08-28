@@ -1,4 +1,5 @@
 import type { CardPayload, ChangeRecord, ReceiptPayload } from './types';
+import { normalizePhone, validEmail } from './validation';
 
 export function encodePayload(value: unknown): string {
   const bytes = new TextEncoder().encode(JSON.stringify(value));
@@ -32,8 +33,8 @@ export function cardPayload(record: ChangeRecord): CardPayload {
     location: record.location,
     note: record.note,
     businessName: record.businessName,
-    replyPhone: record.replyPhone,
-    replyEmail: record.replyEmail,
+    replyPhone: normalizePhone(record.replyPhone) ?? undefined,
+    replyEmail: validEmail(record.replyEmail) ? record.replyEmail!.trim() : undefined,
     expiresAt: record.expiresAt
   };
 }

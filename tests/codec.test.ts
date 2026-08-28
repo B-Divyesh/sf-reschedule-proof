@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { decodePayload, encodePayload, parseIcs, recordsToCsv } from '../src/codec';
 import type { ChangeRecord } from '../src/types';
+import { normalizePhone, receiptVerdict } from '../src/validation';
 
 describe('private link codec', () => {
   it('round-trips unicode without leaking JSON punctuation', () => {
@@ -26,5 +27,35 @@ describe('export', () => {
   it('quotes fields safely for CSV', () => {
     const record = { id: '1', type: 'cancelled', title: 'Cut, colour', customerName: 'Ana', customerPhone: '', customerEmail: '', oldStart: '2026-01-01T10:00:00.000Z', businessName: 'Studio', createdAt: '2026-01-01T09:00:00.000Z', expiresAt: '2026-01-08T00:00:00.000Z', token: 'x', notifications: [] } satisfies ChangeRecord;
     expect(recordsToCsv([record])).toContain('"Cut, colour"');
+  });
+});
+
+describe('contact validation', () => {
+  it('normalizes dialable phone values and rejects arbitrary or recipient-less text', () => {
+    expect(normalizePhone('+1 (555) 123-4567')).toBe('+15551234567');
+    expect(normalizePhone('020 7946 0958')).toBe('02079460958');
+    expect(normalizePhone('not-a-number')).toBeNull();
+    expect(normalizePhone('reply')).toBeNull();
+    expect(normalizePhone('+')).toBeNull();
+    expect(normalizePhone('123')).toBeNull();
+  });
+});
+
+describe('receipt expiry boundary', () => {
+  const record = {
+    id: 'record-1', token: 'secret', type: 'rescheduled', title: 'Lesson', customerName: 'Maya',
+    customerPhone: '+15551234567', customerEmail: '', oldStart: '2026-08-29T10:00:00.000Z',
+    newStart: '2026-08-29T11:00:00.000Z', businessName: 'Studio', replyPhone: '+15557654321',
+    createdAt: '2026-08-28T10:00:00.000Z', expiresAt: '2026-08-28T11:00:00.000Z', notifications: []
+  } satisfies ChangeRecord;
+
+  it('rejects a genuine receipt imported after the local card expires', () => {
+    const receipt = { v: 1 as const, id: record.id, token: record.token, acknowledgedAt: '2026-08-28T10:30:00.000Z' };
+    expect(receiptVerdict(record, receipt, Date.parse('2026-08-28T11:00:01.000Z'))).toBe('expired');
+  });
+
+  it('rejects a hand-crafted receipt timestamp beyond the card expiry', () => {
+    const receipt = { v: 1 as const, id: record.id, token: record.token, acknowledgedAt: '2026-08-28T11:00:01.000Z' };
+    expect(receiptVerdict(record, receipt, Date.parse('2026-08-28T10:59:00.000Z'))).toBe('expired');
   });
 });
