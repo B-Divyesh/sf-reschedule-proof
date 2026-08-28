@@ -1,0 +1,30 @@
+{
+  "slug": "reschedule-proof",
+  "title": "Move Confirmed",
+  "territory": "utilities",
+  "user": "A one-person appointment business that must make cancellations and reschedules visible to customers without adopting a full vertical CRM.",
+  "evidence": [
+    {
+      "url": "https://hn.algolia.com/api/v1/items/46512745",
+      "date": "2026-01-06",
+      "quote_or_summary": "Ask HN asks how small businesses handle appointment reminders; a response identifies cancellation and reschedule state management as the real problem rather than initial alerts."
+    },
+    {
+      "url": "https://github.com/leamonline/Smarter-dog-bookings/issues/604",
+      "date": "2026-08-06",
+      "quote_or_summary": "The booking-system issue says staff reschedules update the diary but produce no customer notification across modal, drag-and-drop, and approval paths."
+    }
+  ],
+  "recurrence": "Two independent 2026 threads identify reschedule state, not reminder delivery, as the failure point; missed moves lead directly to no-shows and customer distrust.",
+  "current_workaround": "Change the calendar then text manually, rely on an automation, or hope a platform detects every editing path.",
+  "incumbents_and_gap": "Calendly, Square Appointments, Fresha, and vertical CRMs offer reminders, but the gap is a lightweight proof-of-change card that works with an existing calendar.",
+  "smallest_useful_product": "PWA that imports or accepts a calendar event, creates a reschedule/cancel card, opens the user's SMS/email composer with a confirmation link, and records acknowledgement. Non-goals: booking marketplace, payment deposits, mass messaging, or a calendar replacement.",
+  "success_measure": "In a 30-day pilot, 90% of changed appointments receive a logged notification and fewer than 5% are disputed as unannounced.",
+  "artifact_class": "pwa-offline",
+  "monetization": "one-time — it augments a calendar already paid for rather than charging per reminder.",
+  "constraints": "Calendar permissions must be least-privilege; no unsolicited messaging; protect customer phone/email data; acknowledgement links must expire.",
+  "est_build_effort": "M",
+  "why_distinct": "The product guarantees an auditable change handoff, not generic scheduling or reminder automation.",
+  "confidence": 4,
+  "state": "RESEARCHED"
+}
