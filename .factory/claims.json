@@ -1,0 +1,65 @@
+[
+  {
+    "id": "demo-sandbox",
+    "claim": "The sample demo stays separate from the visitor's real log.",
+    "where": "demo banner, README",
+    "test": "npm run test:e2e -- --grep @claim:demo-sandbox",
+    "sandbox": "fresh browser context at /demo; assert the demo IndexedDB exists and the real database does not"
+  },
+  {
+    "id": "proof-roundtrip",
+    "claim": "A customer can return a matching acknowledgement that persists in the local log.",
+    "where": "first screen, How it works, README",
+    "test": "npm run test:e2e -- --grep @claim:proof-roundtrip",
+    "sandbox": "fresh /demo sample; open the bike change card, create its receipt, import it, reload, and assert Confirmed"
+  },
+  {
+    "id": "contact-privacy",
+    "claim": "Customer contacts stay on the device, never enter shared card links, and are not sent automatically.",
+    "where": "first-screen facts, form, history, privacy page, README",
+    "test": "npm run test:e2e -- --grep @claim:contact-privacy",
+    "sandbox": "fresh /demo sample with network interception; decode a card and assert contact fields are absent and all HTTP requests are same-origin"
+  },
+  {
+    "id": "offline-reload",
+    "claim": "The saved log opens offline after the first visit.",
+    "where": "first-screen facts, privacy page, README",
+    "test": "npm run test:e2e -- --grep @claim:offline-reload",
+    "sandbox": "fresh /demo context; wait for service-worker control, go offline, reload, and assert the sample record and offline status"
+  },
+  {
+    "id": "export-formats",
+    "claim": "The free tools export every local record as JSON and CSV.",
+    "where": "data tools, privacy page, terms, README",
+    "test": "npm run test:e2e -- --grep @claim:export-formats",
+    "sandbox": "fresh /demo sample; download both formats and assert three records plus one CSV header"
+  },
+  {
+    "id": "calendar-import",
+    "claim": "The form imports the first event from an ICS calendar file.",
+    "where": "change form, README",
+    "test": "npm run test:e2e -- --grep @claim:calendar-import",
+    "sandbox": "fresh /demo sample; upload a bundled in-memory ICS event and assert its title, time, and location populate"
+  },
+  {
+    "id": "backup-import",
+    "claim": "A valid JSON backup can replace the local log after confirmation.",
+    "where": "data tools, README",
+    "test": "npm run test:e2e -- --grep @claim:backup-import",
+    "sandbox": "fresh /demo sample; import one complete record, accept the specific replacement prompt, and assert exactly that record remains"
+  },
+  {
+    "id": "expiring-links",
+    "claim": "Expired change cards cannot create acknowledgement receipts.",
+    "where": "change form, customer card, privacy page, README",
+    "test": "npm run test:e2e -- --grep @claim:expiring-links",
+    "sandbox": "fresh /demo sample; construct the same private card with a past expiry and assert acknowledgement is unavailable"
+  },
+  {
+    "id": "plus-once",
+    "claim": "Move Confirmed Plus costs $29 once and saves reusable business defaults and a message template.",
+    "where": "Plus section, terms, README",
+    "test": "npm run test:e2e -- --grep @claim:plus-once",
+    "sandbox": "fresh /demo sample using its Plus preview; assert price, no subscription, save a demo-only default, reload, and assert demo persistence"
+  }
+]

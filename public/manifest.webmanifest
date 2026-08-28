@@ -3,7 +3,7 @@
   "name": "Move Confirmed — Appointment Change Proof",
   "short_name": "Move Confirmed",
   "description": "Create private reschedule and cancellation cards and keep the acknowledgement receipt locally.",
-  "start_url": "/?v=3",
+  "start_url": "/?v=4",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f5ebcf",

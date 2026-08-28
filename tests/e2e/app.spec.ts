@@ -66,10 +66,12 @@ test('creates and shares a reschedule card', async ({ page }) => {
   await expect(page.getByText('✓ Confirmed')).toBeVisible();
 });
 
-test('has no serious accessibility violations', async ({ page }) => {
-  await page.goto('/');
-  const results = await new AxeBuilder({ page }).analyze();
-  expect(results.violations.filter((violation) => ['critical', 'serious'].includes(violation.impact ?? ''))).toEqual([]);
+test('has no serious accessibility violations on every public screen', async ({ page }) => {
+  for (const path of ['/', '/demo', '/privacy/', '/terms/', '/404/']) {
+    await page.goto(path);
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations.filter((violation) => ['critical', 'serious'].includes(violation.impact ?? '')), path).toEqual([]);
+  }
 });
 
 test('moves keyboard focus from the skip link to the main task', async ({ page }) => {
@@ -80,13 +82,14 @@ test('moves keyboard focus from the skip link to the main task', async ({ page }
   await expect(page.locator('main')).toBeFocused();
 });
 
-test('app shell and local log work offline after installation', async ({ page, context }) => {
-  await page.goto('/');
+test('@claim:offline-reload app shell and sample log work offline after installation', async ({ page, context }) => {
+  await page.goto('/demo');
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.reload();
   await context.setOffline(true);
   await page.reload();
-  await expect(page.getByRole('heading', { name: /appointment moved/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /appointment changes clear/i })).toBeVisible();
+  await expect(page.getByText('Piano lesson', { exact: true })).toBeVisible();
   await expect(page.getByText('Offline ready')).toBeVisible();
 });
 
@@ -163,12 +166,93 @@ test('rejects a malformed backup before confirmation and preserves the existing 
 });
 
 test('shows a persistent inactive-license notice after a returned invalid license', async ({ page }) => {
+  let verificationRequests = 0;
   await page.route('https://api.sociobot.in/api/v1/products/reschedule-proof/verify?license=qa-invalid-return-token', async (route) => {
+    verificationRequests += 1;
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ valid: false, reason: 'invalid' }) });
   });
   await page.goto('/?license=qa-invalid-return-token');
-  await expect(page.getByText('License no longer active. Free tools remain available.')).toBeVisible();
+  await expect(page.locator('#license-status')).toHaveText('License no longer active. Free tools remain available.');
   await expect(page).not.toHaveURL(/license=/);
+  const mutationCount = await page.evaluate(async () => {
+    let mutations = 0;
+    const observer = new MutationObserver((entries) => { mutations += entries.length; });
+    observer.observe(document.querySelector('#app')!, { childList: true, subtree: true });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    observer.disconnect();
+    return mutations;
+  });
+  expect(mutationCount).toBeLessThan(5);
+  await fillChangeForm(page);
+  await page.getByRole('button', { name: /Create confirmation card/ }).click();
+  await expect(page.getByRole('heading', { name: /Send the change/ })).toBeVisible();
+  expect(verificationRequests).toBe(1);
   await page.reload();
-  await expect(page.getByText('License no longer active. Free tools remain available.')).toBeVisible();
+  await expect(page.locator('#license-status')).toHaveText('License no longer active. Free tools remain available.');
+  await expect(page.getByText('Piano lesson', { exact: true })).toBeVisible();
+  expect(verificationRequests).toBe(1);
+});
+
+test('cold first screen names the user and keeps its primary action in view', async ({ page }) => {
+  if (page.viewportSize()!.width > 560) await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await expect(page.getByText(/For one-person appointment businesses/)).toBeVisible();
+  const action = page.getByRole('link', { name: /Try it with sample data/ });
+  await expect(action).toBeVisible();
+  const box = await action.boundingBox();
+  const viewport = page.viewportSize();
+  expect(box).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
+});
+
+test('demo is one click away, isolated, resettable, and discardable', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: /Try it with sample data/ }).click();
+  await expect(page).toHaveURL(/\/demo$/);
+  await expect(page.getByLabel('Demo mode')).toContainText('nothing is saved to your real log');
+  await expect(page.getByText('Piano lesson', { exact: true })).toBeVisible();
+  await expect(page.getByText('Bike service pickup', { exact: true })).toBeVisible();
+  const names = await page.evaluate(async () => (await indexedDB.databases()).map((database) => database.name));
+  expect(names).toContain('move-confirmed-demo');
+  expect(names).toContain('move-confirmed');
+  const realRecordCount = await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('move-confirmed', 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const count = await new Promise<number>((resolve, reject) => {
+      const request = database.transaction('records').objectStore('records').count();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    database.close();
+    return count;
+  });
+  expect(realRecordCount).toBe(0);
+
+  page.on('dialog', (dialog) => dialog.accept());
+  await page.locator('.delete-record').first().click();
+  await expect(page.getByText('Piano lesson', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Reset demo' }).click();
+  await expect(page.getByText('Piano lesson', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Start for real' }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByLabel('Demo mode')).toHaveCount(0);
+  await expect(page.getByText('Piano lesson', { exact: true })).toHaveCount(0);
+  const remainingDatabases = await page.evaluate(async () => (await indexedDB.databases()).map((database) => database.name));
+  expect(remainingDatabases).not.toContain('move-confirmed-demo');
+});
+
+test('mobile skip and footer targets are at least 44 CSS pixels', async ({ page }) => {
+  await page.goto('/');
+  await page.keyboard.press('Tab');
+  const skip = await page.locator('.skip-link').boundingBox();
+  const terms = await page.getByRole('contentinfo').getByRole('link', { name: 'Terms' }).boundingBox();
+  for (const target of [skip, terms]) {
+    expect(target).not.toBeNull();
+    expect(target!.width).toBeGreaterThanOrEqual(44);
+    expect(target!.height).toBeGreaterThanOrEqual(44);
+  }
 });

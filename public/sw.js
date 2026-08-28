@@ -1,17 +1,17 @@
-const VERSION = 'move-confirmed-v3';
+const VERSION = 'move-confirmed-v4';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const CORE = [
-  '/', '/index.html', '/privacy/', '/terms/', '/offline.html', '/offline.css',
+  '/', '/index.html', '/demo', '/privacy/', '/terms/', '/404/', '/offline.html', '/offline.css',
   '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png',
-  '/icons/icon-512.png', '/icons/icon-maskable-512.png',
-  '/assets/move-confirmed-hero-768.webp', '/assets/move-confirmed-hero-1280.webp'
+  '/icons/icon-512.png', '/icons/icon-maskable-512.png', '/icons/apple-touch-icon.png',
+  '/assets/move-confirmed-hero-768.webp', '/assets/move-confirmed-hero-1280.webp', '/assets/social-1200x630.webp'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL_CACHE);
-    const pages = await Promise.all(['/', '/privacy/', '/terms/'].map(async (url) => {
+    const pages = await Promise.all(['/', '/demo', '/privacy/', '/terms/', '/404/'].map(async (url) => {
       try {
         const response = await fetch(url, { cache: 'no-store' });
         if (response.ok) {

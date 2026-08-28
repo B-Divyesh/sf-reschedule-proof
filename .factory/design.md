@@ -99,3 +99,8 @@ Generated on 2026-08-28 with the factory Azure image deployment via
 material. The selected render is reviewed for text artifacts, unintended marks,
 seams, brand resemblance, and palette consistency. Source PNG and prompt sidecar
 live under `assets/src/`; optimized WebP ships in `public/assets/`.
+
+The 1200 × 630 social preview is a centered crop of that reviewed original hero,
+made locally with ImageMagick. The 180 px Apple touch icon is resized from the
+project’s hand-authored app icon. Neither derivative adds outside artwork, text,
+logos, or third-party material.

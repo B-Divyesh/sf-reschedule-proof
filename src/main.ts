@@ -1,6 +1,6 @@
 import './style.css';
 import { cardUrl, decodePayload, humanDate, parseIcs, randomToken, receiptUrl, recordsToCsv, toLocalInput } from './codec';
-import { deleteRecord, getRecord, getRecords, getSettings, replaceRecords, saveRecord, saveSettings } from './db';
+import { DEMO_MODE, deleteRecord, discardDemoData, ensureDemoData, getRecord, getRecords, getSettings, replaceRecords, resetDemoData, saveRecord, saveSettings } from './db';
 import { buyUrl, cachedUnlocked, getCachedVerdict, getLicense, saveLicense, storeReturnedLicense, verifyLicense } from './license';
 import type { BusinessSettings, CardPayload, ChangeRecord, NotifyChannel, ReceiptPayload } from './types';
 import { normalizePhone, receiptVerdict, validBackupRecords, validEmail } from './validation';
@@ -11,6 +11,12 @@ const app = appElement;
 
 let installPrompt: BeforeInstallPromptEvent | null = null;
 let lastCreated: ChangeRecord | null = null;
+let licenseReconciled = false;
+let licenseReconciling = false;
+let ownerRenderVersion = 0;
+const BUILD_ID = 'repair-3';
+
+if (DEMO_MODE && location.pathname !== '/demo') history.replaceState({}, '', `/demo${location.hash}`);
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -35,11 +41,13 @@ const icon = (name: 'arrow' | 'check' | 'ticket' | 'signal' | 'download' | 'lock
 
 function shell(content: string, mode: 'owner' | 'customer' = 'owner'): string {
   return `
+    ${DEMO_MODE ? '<aside class="demo-banner" aria-label="Demo mode"><strong>Demo — sample data, nothing is saved to your real log</strong><span><button id="reset-demo" class="demo-action" type="button">Reset demo</button><button id="start-real" class="demo-action" type="button">Start for real</button></span></aside>' : ''}
     <header class="site-header">
-      <a class="brand" href="${mode === 'owner' ? '#/' : '/'}" aria-label="Move Confirmed home">
+      <a class="brand" href="${mode === 'owner' ? (DEMO_MODE ? '/demo' : '/') : '/'}" aria-label="Move Confirmed home">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
         <span>Move Confirmed</span>
       </a>
+      <nav class="site-nav" aria-label="Main navigation"><a href="/demo">Demo</a><a href="${DEMO_MODE ? '/demo#how' : '/#how'}">How it works</a><a href="/privacy/">Privacy</a></nav>
       <div class="header-actions">
         <span id="network-status" class="network-status"><span aria-hidden="true">●</span> <span>${navigator.onLine ? 'Online' : 'Offline ready'}</span></span>
         ${mode === 'owner' ? '<button id="install-button" class="text-button" type="button" hidden>Install app</button>' : ''}
@@ -48,8 +56,8 @@ function shell(content: string, mode: 'owner' | 'customer' = 'owner'): string {
     <main id="main" tabindex="-1">${content}</main>
     <footer class="site-footer">
       <div><strong>Move Confirmed</strong><span>Proof of change, kept on your device.</span></div>
-      <nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="https://github.com/B-Divyesh/sf-reschedule-proof" rel="noreferrer">Source</a></nav>
-      <p class="generated-note">Poster artwork generated for this product with the factory image model.</p>
+      <nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="https://github.com/B-Divyesh/sf-reschedule-proof" rel="noreferrer">Source (external)</a></nav>
+      <p class="generated-note">Built by Param Factory · Build ${BUILD_ID} · Poster artwork generated for this product with the factory image model.</p>
     </footer>
     <div id="live-region" class="sr-only" aria-live="polite"></div>
     <div id="toast" class="toast" role="status" hidden></div>`;
@@ -64,6 +72,15 @@ function announce(message: string): void {
     toast.hidden = false;
     window.setTimeout(() => { toast.hidden = true; }, 4200);
   }
+}
+
+function focusPageHeading(): void {
+  const heading = document.querySelector<HTMLHeadingElement>('main h1');
+  if (!heading) return;
+  heading.tabIndex = -1;
+  heading.focus();
+  const region = document.querySelector<HTMLElement>('#live-region');
+  if (region) region.textContent = document.title;
 }
 
 async function copyText(value: string): Promise<void> {
@@ -127,6 +144,17 @@ function dashboard(records: ChangeRecord[]): string {
     <dl><div><dt>Changes</dt><dd>${recent.length}</dd></div><div><dt>Notified</dt><dd>${notified}</dd></div><div><dt>Acknowledged</dt><dd>${acknowledged}</dd></div><div><dt>Coverage</dt><dd>${percent}%</dd></div></dl>
     <p class="score-note">Target: log a notification for at least 90% of changed appointments.</p>
   </section>`;
+}
+
+function howItWorks(): string {
+  return `<section class="how-it-works" id="how" aria-labelledby="how-title">
+    <div><p class="eyebrow">Three stops</p><h2 id="how-title">How the change reaches your log</h2></div>
+    <ol><li><strong>Prepare the change.</strong><span>Enter an appointment or import its calendar event.</span></li><li><strong>Open the message.</strong><span>The app prepares SMS or email. You check it and press Send.</span></li><li><strong>Add the receipt.</strong><span>The customer returns a private receipt to your original device.</span></li></ol>
+  </section>`;
+}
+
+function privacyAndLimits(): string {
+  return `<section class="limits" aria-labelledby="limits-title"><div><p class="eyebrow">Clear limits</p><h2 id="limits-title">A handoff tool, not another calendar</h2></div><p>Move Confirmed does not book appointments, send messages, prove carrier delivery, or replace your calendar. It keeps appointment and customer data in this browser. Shared cards exclude the customer’s phone number and email address.</p></section>`;
 }
 
 function createdPanel(record: ChangeRecord, settings: BusinessSettings, unlocked: boolean): string {
@@ -197,7 +225,7 @@ function dataTools(): string {
   return `<section class="data-tools" aria-labelledby="data-title"><div><p class="eyebrow">Your records, your device</p><h2 id="data-title">Carry your log with you.</h2><p>Export anytime. Import replaces the current local log only after you confirm.</p></div><div class="tool-actions"><button id="export-json" class="secondary" type="button" aria-label="Export local log as JSON">Export JSON</button><button id="export-csv" class="secondary" type="button" aria-label="Export local log as CSV">Export CSV</button><label for="import-json" class="file-button">Import JSON</label><input id="import-json" type="file" accept="application/json,.json" /></div></section>`;
 }
 
-function plusMarkup(settings: BusinessSettings, unlocked: boolean): string {
+function plusMarkup(settings: BusinessSettings, unlocked: boolean, demoPreview = false): string {
   const cachedVerdict = getCachedVerdict();
   const licenseStatus = !getLicense()
     ? ''
@@ -206,7 +234,7 @@ function plusMarkup(settings: BusinessSettings, unlocked: boolean): string {
       : 'A saved license needs verification.';
   return `<section class="plus-section" aria-labelledby="plus-title">
     <div><p class="eyebrow">Optional one-time upgrade</p><h2 id="plus-title">Move Confirmed Plus — $29 once</h2><p>The free change card, acknowledgement receipt, offline log, and all exports stay free. Plus saves reusable business defaults and a custom message template. No subscription.</p></div>
-    ${unlocked ? `<form id="settings-form" class="plus-settings"><span class="state-badge confirmed">✓ Plus unlocked</span>
+    ${unlocked ? `<form id="settings-form" class="plus-settings"><span class="state-badge confirmed">${demoPreview ? 'Demo · Plus preview' : '✓ Plus unlocked'}</span>
       <label>Default business name<input name="businessName" value="${esc(settings.businessName)}" /></label>
       <label>Default reply mobile<input name="replyPhone" type="tel" value="${esc(settings.replyPhone)}" /></label>
       <label>Default reply email<input name="replyEmail" type="email" value="${esc(settings.replyEmail)}" /></label>
@@ -216,20 +244,43 @@ function plusMarkup(settings: BusinessSettings, unlocked: boolean): string {
 }
 
 async function renderOwner(): Promise<void> {
+  const renderVersion = ++ownerRenderVersion;
+  if (DEMO_MODE) await ensureDemoData();
   const [records, settings] = await Promise.all([getRecords(), getSettings()]);
-  const unlocked = cachedUnlocked();
+  const unlocked = !DEMO_MODE && cachedUnlocked();
+  const heroFacts = `<ul class="hero-facts"><li><strong>Private</strong><span>Customer contacts stay on this device.</span></li><li><strong>Offline</strong><span>Your saved log opens after the first visit.</span></li><li><strong>Price</strong><span>Core tools are free. Plus is $29 once.</span></li></ul>`;
+  const heroActions = DEMO_MODE
+    ? `<div class="hero-actions"><a class="primary" href="#history">View the sample log ${icon('arrow')}</a><span>Three sample changes show prepared, notified, and confirmed states.</span><a class="secondary" href="#create">Try a new change</a></div>`
+    : `<div class="hero-actions"><a class="primary" href="/demo">Try it with sample data ${icon('arrow')}</a><span>See three realistic changes in a separate demo log.</span><a class="secondary" href="#create">Prepare your change</a></div>`;
   app.innerHTML = shell(`
-    <section class="hero"><div class="hero-copy"><p class="route-kicker"><span>OLD TIME</span><i aria-hidden="true"></i><span>NEW TIME</span></p><h1>The appointment moved.<br /><em>Make sure the message did too.</em></h1><p class="hero-lede">Create a private change card, open the customer’s SMS or email composer, and keep the acknowledgement receipt beside the calendar you already use.</p><a class="primary" href="#create">Prepare a change ${icon('arrow')}</a><p class="trust-line">No account · No contact upload · Works offline</p></div><figure class="hero-art"><picture><source srcset="/assets/move-confirmed-hero-768.webp 768w, /assets/move-confirmed-hero-1280.webp 1280w" sizes="(max-width: 760px) 100vw, 48vw" type="image/webp" /><img src="/assets/move-confirmed-hero-1280.webp" width="1280" height="853" fetchpriority="high" decoding="async" alt="Two stylized station clocks connected by a red and teal route ending in a confirmation seal" /></picture><figcaption>From changed stop to confirmed arrival.</figcaption></figure></section>
+    <section class="hero"><div class="hero-copy"><p class="route-kicker"><span>OLD TIME</span><i aria-hidden="true"></i><span>NEW TIME</span></p><h1>Make appointment changes clear and confirmed.</h1><p class="hero-lede">For one-person appointment businesses: send a private change card and keep the customer’s receipt beside your calendar.</p>${heroActions}${heroFacts}</div><figure class="hero-art"><picture><source srcset="/assets/move-confirmed-hero-768.webp 768w, /assets/move-confirmed-hero-1280.webp 1280w" sizes="(max-width: 760px) 100vw, 48vw" type="image/webp" /><img src="/assets/move-confirmed-hero-1280.webp" width="1280" height="853" fetchpriority="high" decoding="async" alt="Two stylized station clocks connected by a red and teal route ending in a confirmation seal" /></picture><figcaption>From changed stop to confirmed arrival.</figcaption></figure></section>
     ${dashboard(records)}
-    ${lastCreated ? createdPanel(lastCreated, settings, unlocked) : ''}
-    ${formMarkup(unlocked ? settings : { businessName: '', replyPhone: '', replyEmail: '', messageTemplate: '' })}
-    <section class="history" aria-labelledby="history-title"><div class="section-intro"><p class="eyebrow">Local proof log</p><h2 id="history-title">Change history</h2><p>Customer contact details never appear in shared card links.</p></div>${recordList(records)}</section>
-    ${dataTools()}
-    ${plusMarkup(settings, unlocked)}
+    <div id="owner-lower" class="owner-lower" aria-busy="true"></div>
   `);
+  document.title = DEMO_MODE ? 'Demo — Move Confirmed' : 'Move Confirmed — Proof for changed appointments';
+  const canonicalUrl = `https://reschedule-proof.sociobot.in${DEMO_MODE ? '/demo' : '/'}`;
+  document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.setAttribute('href', canonicalUrl);
+  document.querySelector<HTMLMetaElement>('meta[property="og:url"]')?.setAttribute('content', canonicalUrl);
+  document.querySelector<HTMLMetaElement>('meta[property="og:title"]')?.setAttribute('content', document.title);
+  document.querySelector<HTMLMetaElement>('meta[name="twitter:title"]')?.setAttribute('content', document.title);
   bindCommon();
+  const lower = document.querySelector<HTMLElement>('#owner-lower');
+  if (!lower) return;
+  const stages = [
+    `${lastCreated ? createdPanel(lastCreated, settings, unlocked) : ''}${howItWorks()}`,
+    formMarkup(unlocked ? settings : { businessName: '', replyPhone: '', replyEmail: '', messageTemplate: '' }),
+    `<section class="history" id="history" aria-labelledby="history-title"><div class="section-intro"><p class="eyebrow">Local proof log</p><h2 id="history-title">Change history</h2><p>Customer contact details never appear in shared card links.</p></div>${recordList(records)}</section>${dataTools()}`,
+    `${privacyAndLimits()}${plusMarkup(settings, DEMO_MODE || unlocked, DEMO_MODE)}`
+  ];
+  for (const stage of stages) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    if (renderVersion !== ownerRenderVersion) return;
+    lower.insertAdjacentHTML('beforeend', stage);
+  }
+  lower.removeAttribute('aria-busy');
   bindOwner(records);
-  if (getLicense()) void reconcileLicense();
+  if (['#create', '#how', '#history'].includes(location.hash)) document.querySelector<HTMLElement>(location.hash)?.scrollIntoView();
+  if (!DEMO_MODE && getLicense() && !licenseReconciled && !licenseReconciling) void reconcileLicense();
 }
 
 function validCard(payload: CardPayload): boolean {
@@ -251,6 +302,7 @@ function renderCard(encoded: string): void {
       ${expired ? `<div class="expired-note">${icon('signal')}<p>For your privacy, this link expired on ${humanDate(payload.expiresAt)}. Contact ${esc(payload.businessName)} directly to confirm the appointment.</p></div>` : `<div class="appointment-title"><span>${payload.type === 'cancelled' ? 'Cancellation' : 'Reschedule'}</span><h2>${esc(payload.title)}</h2></div>${cardState(payload)}${payload.location ? `<p class="card-detail"><strong>Location</strong>${esc(payload.location)}</p>` : ''}${payload.note ? `<p class="card-detail"><strong>Note</strong>${esc(payload.note)}</p>` : ''}<button id="acknowledge" class="primary acknowledge" type="button">I’ve seen this change ${icon('check')}</button><p class="privacy-note">This sends nothing automatically. You’ll choose SMS or email to return a timestamped receipt.</p><div id="receipt-actions"></div>`}
       <p class="expiry">Private link · Expires ${humanDate(payload.expiresAt)}</p></div><a class="customer-home" href="/">What is Move Confirmed?</a></section>`, 'customer');
     bindCommon();
+    focusPageHeading();
     document.querySelector('#acknowledge')?.addEventListener('click', () => {
       if (Date.now() > new Date(payload.expiresAt).getTime()) void route();
       else showReceiptActions(payload);
@@ -258,6 +310,7 @@ function renderCard(encoded: string): void {
   } catch {
     app.innerHTML = shell(`<section class="customer-page"><div class="customer-ticket error-ticket">${icon('signal')}<h1>This change card can’t be read.</h1><p>The link may be incomplete. Ask the business to send a fresh confirmation link.</p></div><a class="customer-home" href="/">Open Move Confirmed</a></section>`, 'customer');
     bindCommon();
+    focusPageHeading();
   }
 }
 
@@ -292,6 +345,7 @@ async function renderReceipt(encoded: string): Promise<void> {
       : 'Open this link on the device that created the original card. No matching customer record was imported or created.';
     app.innerHTML = shell(`<section class="receipt-import"><p class="eyebrow">Incoming acknowledgement</p><h1>${title}</h1>${matchedRecord ? `<div class="receipt-preview"><span class="punch-stamp">SEEN</span><h2>${esc(matchedRecord.title)}</h2><p>${esc(matchedRecord.customerName)} · ${humanDate(receipt.acknowledgedAt)}</p></div><button id="import-receipt" class="primary" type="button">Add acknowledgement to log ${icon('check')}</button><p>The receipt timestamp and verification token will be kept in this browser.</p>` : `<div class="expired-note">${icon('signal')}<p>${failure}</p></div>`}<a class="inline-action" href="#/">Return to local log ${icon('arrow')}</a></section>`);
     bindCommon();
+    focusPageHeading();
     document.querySelector('#import-receipt')?.addEventListener('click', async () => {
       const currentRecord = await getRecord(receipt.id);
       if (receiptVerdict(currentRecord, receipt) !== 'valid' || !currentRecord) {
@@ -308,6 +362,7 @@ async function renderReceipt(encoded: string): Promise<void> {
   } catch {
     app.innerHTML = shell(`<section class="receipt-import"><h1>This acknowledgement receipt is incomplete.</h1><p>Ask the customer to use the original card again and return a fresh receipt.</p><a class="inline-action" href="#/">Return to local log ${icon('arrow')}</a></section>`);
     bindCommon();
+    focusPageHeading();
   }
 }
 
@@ -326,6 +381,16 @@ function bindCommon(): void {
     const choice = await installPrompt.userChoice;
     if (choice.outcome === 'accepted') install.hidden = true;
     installPrompt = null;
+  });
+  document.querySelector('#reset-demo')?.addEventListener('click', async () => {
+    await resetDemoData();
+    lastCreated = null;
+    await renderOwner();
+    announce('Demo reset to the original sample changes.');
+  });
+  document.querySelector('#start-real')?.addEventListener('click', async () => {
+    try { await discardDemoData(); } catch { /* A second demo tab may still hold the temporary database. */ }
+    location.assign('/');
   });
 }
 
@@ -463,17 +528,29 @@ async function logNotification(id: string, channel: NotifyChannel): Promise<bool
 }
 
 async function reconcileLicense(): Promise<void> {
+  if (licenseReconciled || licenseReconciling) return;
+  licenseReconciling = true;
   try {
-    const before = cachedUnlocked(); const result = await verifyLicense();
-    if (before !== result.valid || !result.valid) { await renderOwner(); if (before !== result.valid) announce(result.valid ? 'Move Confirmed Plus unlocked.' : 'License no longer active. Free tools remain available.'); }
-  } catch { /* Offline is expected; retain the cached verdict and free experience. */ }
+    const before = getCachedVerdict();
+    const result = await verifyLicense();
+    licenseReconciled = true;
+    if (!before || before.valid !== result.valid) {
+      await renderOwner();
+      announce(result.valid ? 'Move Confirmed Plus unlocked.' : 'License no longer active. Free tools remain available.');
+    }
+  } catch {
+    licenseReconciled = true;
+    /* Offline is expected; retain the cached verdict and free experience. */
+  } finally {
+    licenseReconciling = false;
+  }
 }
 
-async function route(): Promise<void> {
+async function route(focusOwner = false): Promise<void> {
   const hash = location.hash;
-  if (hash.startsWith('#/card/')) renderCard(hash.slice('#/card/'.length));
-  else if (hash.startsWith('#/receipt/')) await renderReceipt(hash.slice('#/receipt/'.length));
-  else await renderOwner();
+  if (hash.startsWith('#/card/')) { document.title = 'Appointment change — Move Confirmed'; renderCard(hash.slice('#/card/'.length)); }
+  else if (hash.startsWith('#/receipt/')) { document.title = 'Acknowledgement — Move Confirmed'; await renderReceipt(hash.slice('#/receipt/'.length)); }
+  else { await renderOwner(); if (focusOwner) focusPageHeading(); }
 }
 
 window.addEventListener('beforeinstallprompt', (event) => {
@@ -481,8 +558,8 @@ window.addEventListener('beforeinstallprompt', (event) => {
   const button = document.querySelector<HTMLButtonElement>('#install-button'); if (button) button.hidden = false;
 });
 window.addEventListener('hashchange', () => {
-  if (location.hash === '#main' || location.hash === '#create') return;
-  void route();
+  if (['#main', '#create', '#how', '#history'].includes(location.hash)) return;
+  void route(true);
 });
 
 storeReturnedLicense();

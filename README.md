@@ -9,6 +9,14 @@ local audit log.
 It is intentionally not a booking marketplace, calendar replacement, automated
 messaging service, or proof of carrier delivery.
 
+## Try the isolated demo
+
+Open `/demo` or select **Try it with sample data** on the first screen. The demo
+starts with three realistic appointment changes and uses the separate
+`move-confirmed-demo` IndexedDB database. **Reset demo** restores the sample.
+**Start for real** deletes the demo database and returns to the real workspace.
+Nothing in demo mode reads or writes the real appointment log or license keys.
+
 ## How the acknowledgement round trip works
 
 1. The business enters or imports an `.ics` event and creates a change card.
@@ -29,9 +37,11 @@ does not claim silent cross-device sync.
 Requires Node.js 22+.
 
 ```bash
-npm install
+npm ci
 npm run dev
 npm test
+npm run typecheck
+npm run lint
 npm run build
 npm run preview
 npm run test:e2e
@@ -40,6 +50,11 @@ npm run test:e2e
 The production build command is exactly `npm run build`. Static output lands in
 `dist/`, with `dist/index.html` at its root. Playwright is pinned to 1.58.2 as
 required by the build worker.
+
+Published product claims and their exact browser commands are listed in
+`.factory/claims.json`. Every claim test starts from the direct demo entry point.
+The Plus test uses the demo-only settings preview without contacting billing or
+reading a real license.
 
 ## Privacy and data ownership
 
