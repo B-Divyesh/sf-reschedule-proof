@@ -1,4 +1,5 @@
 import type { BusinessSettings, ChangeRecord } from './types';
+import { validBackupRecords } from './validation';
 
 const DB_NAME = 'move-confirmed';
 const DB_VERSION = 1;
@@ -55,6 +56,9 @@ export async function deleteRecord(id: string): Promise<void> {
 }
 
 export async function replaceRecords(records: ChangeRecord[]): Promise<void> {
+  // Keep this guard at the write boundary as well as the UI boundary. It makes
+  // an accidental caller unable to clear a valid log with malformed data.
+  if (!validBackupRecords(records)) throw new Error('Import contains invalid records.');
   const db = await openDb();
   const tx = db.transaction(RECORDS, 'readwrite');
   tx.objectStore(RECORDS).clear();

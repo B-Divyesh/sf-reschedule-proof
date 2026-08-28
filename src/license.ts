@@ -29,11 +29,16 @@ export function getLicense(): string {
 }
 
 export function cachedUnlocked(): boolean {
+  return getCachedVerdict()?.valid === true;
+}
+
+export function getCachedVerdict(): Verdict | null {
   try {
     const verdict = JSON.parse(localStorage.getItem(VERDICT_KEY) ?? '') as Verdict;
-    return verdict.valid;
+    if (typeof verdict.valid !== 'boolean' || !Number.isFinite(verdict.checkedAt)) return null;
+    return verdict;
   } catch {
-    return false;
+    return null;
   }
 }
 

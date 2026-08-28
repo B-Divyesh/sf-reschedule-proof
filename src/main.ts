@@ -1,9 +1,9 @@
 import './style.css';
 import { cardUrl, decodePayload, humanDate, parseIcs, randomToken, receiptUrl, recordsToCsv, toLocalInput } from './codec';
 import { deleteRecord, getRecord, getRecords, getSettings, replaceRecords, saveRecord, saveSettings } from './db';
-import { buyUrl, cachedUnlocked, getLicense, saveLicense, storeReturnedLicense, verifyLicense } from './license';
+import { buyUrl, cachedUnlocked, getCachedVerdict, getLicense, saveLicense, storeReturnedLicense, verifyLicense } from './license';
 import type { BusinessSettings, CardPayload, ChangeRecord, NotifyChannel, ReceiptPayload } from './types';
-import { normalizePhone, receiptVerdict, validEmail } from './validation';
+import { normalizePhone, receiptVerdict, validBackupRecords, validEmail } from './validation';
 
 const appElement = document.querySelector<HTMLDivElement>('#app');
 if (!appElement) throw new Error('App root is missing.');
@@ -109,9 +109,9 @@ function recordList(records: ChangeRecord[]): string {
       </div>
       ${statusSteps(record)}
       <div class="record-actions">
-        <button class="secondary share-record" type="button" data-id="${esc(record.id)}">Share card</button>
-        ${!record.acknowledgement ? `<button class="text-button manual-record" type="button" data-id="${esc(record.id)}">Mark acknowledged</button>` : ''}
-        <button class="text-button danger delete-record" type="button" data-id="${esc(record.id)}">Delete</button>
+        <button class="secondary share-record" type="button" data-id="${esc(record.id)}" aria-label="Share confirmation card">Share card</button>
+        ${!record.acknowledgement ? `<button class="text-button manual-record" type="button" data-id="${esc(record.id)}" aria-label="Mark acknowledgement manually">Mark acknowledged</button>` : ''}
+        <button class="text-button danger delete-record" type="button" data-id="${esc(record.id)}" aria-label="Delete this change record">Delete</button>
       </div>
     </article>`).join('')}</div>`;
 }
@@ -194,10 +194,16 @@ function formMarkup(settings: BusinessSettings): string {
 }
 
 function dataTools(): string {
-  return `<section class="data-tools" aria-labelledby="data-title"><div><p class="eyebrow">Your records, your device</p><h2 id="data-title">Carry your log with you.</h2><p>Export anytime. Import replaces the current local log only after you confirm.</p></div><div class="tool-actions"><button id="export-json" class="secondary" type="button">Export JSON</button><button id="export-csv" class="secondary" type="button">Export CSV</button><label for="import-json" class="file-button">Import JSON</label><input id="import-json" type="file" accept="application/json,.json" /></div></section>`;
+  return `<section class="data-tools" aria-labelledby="data-title"><div><p class="eyebrow">Your records, your device</p><h2 id="data-title">Carry your log with you.</h2><p>Export anytime. Import replaces the current local log only after you confirm.</p></div><div class="tool-actions"><button id="export-json" class="secondary" type="button" aria-label="Export local log as JSON">Export JSON</button><button id="export-csv" class="secondary" type="button" aria-label="Export local log as CSV">Export CSV</button><label for="import-json" class="file-button">Import JSON</label><input id="import-json" type="file" accept="application/json,.json" /></div></section>`;
 }
 
 function plusMarkup(settings: BusinessSettings, unlocked: boolean): string {
+  const cachedVerdict = getCachedVerdict();
+  const licenseStatus = !getLicense()
+    ? ''
+    : cachedVerdict && !cachedVerdict.valid
+      ? 'License no longer active. Free tools remain available.'
+      : 'A saved license needs verification.';
   return `<section class="plus-section" aria-labelledby="plus-title">
     <div><p class="eyebrow">Optional one-time upgrade</p><h2 id="plus-title">Move Confirmed Plus — $29 once</h2><p>The free change card, acknowledgement receipt, offline log, and all exports stay free. Plus saves reusable business defaults and a custom message template. No subscription.</p></div>
     ${unlocked ? `<form id="settings-form" class="plus-settings"><span class="state-badge confirmed">✓ Plus unlocked</span>
@@ -205,7 +211,7 @@ function plusMarkup(settings: BusinessSettings, unlocked: boolean): string {
       <label>Default reply mobile<input name="replyPhone" type="tel" value="${esc(settings.replyPhone)}" /></label>
       <label>Default reply email<input name="replyEmail" type="email" value="${esc(settings.replyEmail)}" /></label>
       <label>Message template<textarea name="messageTemplate" rows="4" placeholder="Hi {customer}, your {appointment} has changed. Review: {link}">${esc(settings.messageTemplate)}</textarea></label>
-      <p class="field-hint">Available placeholders: {customer}, {appointment}, {change}, {link}.</p><button class="primary" type="submit">Save Plus defaults</button></form>` : `<div class="unlock-panel">${icon('lock')}<p>One payment unlocks Plus on your devices. Checkout is hosted by Sociobot/Dodo, the merchant of record.</p><a class="primary" href="${buyUrl()}">Buy Plus for $29</a><form id="license-form"><label for="license">Have a license? Paste it here</label><div class="copy-field"><input id="license" name="license" autocomplete="off" required /><button class="secondary" type="submit">Restore</button></div><p id="license-status" class="field-hint" aria-live="polite">${getLicense() ? 'A saved license needs verification.' : ''}</p></form></div>`}
+      <p class="field-hint">Available placeholders: {customer}, {appointment}, {change}, {link}.</p><button class="primary" type="submit">Save Plus defaults</button></form>` : `<div class="unlock-panel">${icon('lock')}<p>One payment unlocks Plus on your devices. Checkout is hosted by Sociobot/Dodo, the merchant of record.</p><a class="primary" href="${buyUrl()}">Buy Plus for $29</a><form id="license-form"><label for="license">Have a license? Paste it here</label><div class="copy-field"><input id="license" name="license" autocomplete="off" required /><button class="secondary" type="submit" aria-label="Restore pasted license">Restore</button></div><p id="license-status" class="field-hint" aria-live="polite">${licenseStatus}</p></form></div>`}
   </section>`;
 }
 
@@ -429,7 +435,7 @@ function bindOwner(records: ChangeRecord[]): void {
     const file = (event.currentTarget as HTMLInputElement).files?.[0]; if (!file) return;
     try {
       const payload = JSON.parse(await file.text()) as { version: number; records: ChangeRecord[] };
-      if (payload.version !== 1 || !Array.isArray(payload.records)) throw new Error('Unsupported backup');
+      if (payload.version !== 1 || !validBackupRecords(payload.records)) throw new Error('Unsupported backup');
       if (!confirm(`Replace this device’s current ${records.length} records with ${payload.records.length} imported records?`)) return;
       await replaceRecords(payload.records); await renderOwner(); announce('Backup imported into the local log.');
     } catch { announce('That file is not a valid Move Confirmed backup.'); }
@@ -459,7 +465,7 @@ async function logNotification(id: string, channel: NotifyChannel): Promise<bool
 async function reconcileLicense(): Promise<void> {
   try {
     const before = cachedUnlocked(); const result = await verifyLicense();
-    if (before !== result.valid) { await renderOwner(); announce(result.valid ? 'Move Confirmed Plus unlocked.' : 'License no longer active. Free tools remain available.'); }
+    if (before !== result.valid || !result.valid) { await renderOwner(); if (before !== result.valid) announce(result.valid ? 'Move Confirmed Plus unlocked.' : 'License no longer active. Free tools remain available.'); }
   } catch { /* Offline is expected; retain the cached verdict and free experience. */ }
 }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { decodePayload, encodePayload, parseIcs, recordsToCsv } from '../src/codec';
 import type { ChangeRecord } from '../src/types';
-import { normalizePhone, receiptVerdict } from '../src/validation';
+import { normalizePhone, receiptVerdict, validBackupRecords } from '../src/validation';
 
 describe('private link codec', () => {
   it('round-trips unicode without leaking JSON punctuation', () => {
@@ -57,5 +57,24 @@ describe('receipt expiry boundary', () => {
   it('rejects a hand-crafted receipt timestamp beyond the card expiry', () => {
     const receipt = { v: 1 as const, id: record.id, token: record.token, acknowledgedAt: '2026-08-28T11:00:01.000Z' };
     expect(receiptVerdict(record, receipt, Date.parse('2026-08-28T10:59:00.000Z'))).toBe('expired');
+  });
+});
+
+describe('backup validation', () => {
+  const record = {
+    id: 'backup-1', token: 'secret', type: 'rescheduled', title: 'Lesson', customerName: 'Maya',
+    customerPhone: '+15551234567', customerEmail: '', oldStart: '2026-08-29T10:00:00.000Z',
+    newStart: '2026-08-29T11:00:00.000Z', businessName: 'Studio', replyPhone: '+15557654321',
+    createdAt: '2026-08-28T10:00:00.000Z', expiresAt: '2026-08-30T10:00:00.000Z', notifications: []
+  } satisfies ChangeRecord;
+
+  it('accepts an exported record but rejects the verifier malformed-record payload before replacement', () => {
+    expect(validBackupRecords([record])).toBe(true);
+    expect(validBackupRecords([{ id: 'malformed-record' }])).toBe(false);
+  });
+
+  it('rejects duplicate IDs and invalid nested notification data', () => {
+    expect(validBackupRecords([record, { ...record }])).toBe(false);
+    expect(validBackupRecords([{ ...record, notifications: [{ channel: 'sms', at: 'not-a-date' }] }])).toBe(false);
   });
 });

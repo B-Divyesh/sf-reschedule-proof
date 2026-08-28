@@ -142,3 +142,33 @@ test('hides and disables the new time control for cancellations', async ({ page 
   await expect(label).toBeHidden();
   await expect(page.getByLabel('New time')).not.toHaveAttribute('required', '');
 });
+
+test('rejects a malformed backup before confirmation and preserves the existing local proof record', async ({ page }) => {
+  await page.goto('/');
+  await fillChangeForm(page);
+  await page.getByRole('button', { name: /Create confirmation card/ }).click();
+  await expect(page.getByText('Piano lesson', { exact: true })).toBeVisible();
+  let replacementConfirmationCount = 0;
+  page.on('dialog', async (dialog) => { replacementConfirmationCount += 1; await dialog.dismiss(); });
+  await page.locator('#import-json').setInputFiles({
+    name: 'damaged-backup.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{"version":1,"records":[{"id":"malformed-record"}]}')
+  });
+  await expect(page.getByRole('status')).toHaveText('That file is not a valid Move Confirmed backup.');
+  expect(replacementConfirmationCount).toBe(0);
+  await page.reload();
+  await expect(page.getByText('Piano lesson', { exact: true })).toBeVisible();
+  await expect(page.getByText('Your local log could not open.')).toHaveCount(0);
+});
+
+test('shows a persistent inactive-license notice after a returned invalid license', async ({ page }) => {
+  await page.route('https://api.sociobot.in/api/v1/products/reschedule-proof/verify?license=qa-invalid-return-token', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ valid: false, reason: 'invalid' }) });
+  });
+  await page.goto('/?license=qa-invalid-return-token');
+  await expect(page.getByText('License no longer active. Free tools remain available.')).toBeVisible();
+  await expect(page).not.toHaveURL(/license=/);
+  await page.reload();
+  await expect(page.getByText('License no longer active. Free tools remain available.')).toBeVisible();
+});
