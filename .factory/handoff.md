@@ -5,6 +5,7 @@
 - Work order: `reschedule-proof-repair-2`
 - Base/report commit: `088ad6f001670b79de8ce85b4b4300f3a345b15e`
 - Failed candidate: `3454aec2cedc0f31b595d74b866b1886d2ee7c5c`
+- Repair commit: `7eea9ebc2423ca6fa51cdaa980f7e03e801a822d` (amended below to include this handoff)
 - Independent report: `.factory/verification-2.md`
 - Product and deployment class: Move Confirmed, static local-first PWA
 - Production URL: https://reschedule-proof.sociobot.in/
