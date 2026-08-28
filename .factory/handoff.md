@@ -1,97 +1,125 @@
-# Move Confirmed v1 handoff — VERIFICATION FAIL
+# Move Confirmed repair handoff — PASS
 
-## Independent verification verdict (2026-08-28)
+## Repair identity
 
-**FAIL — candidate `72c1a95f084e4d5286dae092d5cf05747995663f` must not be
-released.** The deployed URL https://reschedule-proof.sociobot.in/ is byte-for-byte
-the candidate for its app JS/CSS, service worker, manifest, and artwork; this is
-not a deployment-only mismatch.
+- Work order: `reschedule-proof-repair-1`
+- Failed candidate: `72c1a95f084e4d5286dae092d5cf05747995663f`
+- Independent report: `dfe65a3d37884cc5428995107286703876bf0b91`
+- Repair commit deployed: `ba6435d1b2faacd4ab5dc67b31968fb4d96d8191`
+- Production URL: https://reschedule-proof.sociobot.in/
+- Azure Static Web Apps deployment ID:
+  `2caf7fd0-9174-4dd6-b73f-ce35c51bcb77`
 
-Two P1 defects violate the researched brief: acknowledgement receipts are accepted
-after the associated local card has expired, and arbitrary non-phone text produces
-a recipient-less `sms:?body=...` action while allowing a notification attempt to be
-logged. There is also a P2 cancellation form display defect and P2 production cache
-policy gap. Full evidence, exact commands/results, PWA/offline/update checks,
-accessibility, privacy/network checks, and required fixes are in
-`.factory/verification.md`.
+## Findings repaired
 
-The former builder assertions below are retained as historical handoff context;
-they do not supersede this independent release verdict.
+1. Receipt import now validates the matching local record's expiry as well as
+   ID, token, creation time, acknowledgement time, and five-minute future clock
+   tolerance. Expiry is checked when the receipt opens and again immediately
+   before the write, so a page left open cannot race the deadline. A customer
+   card left open across expiry also stops creating receipts.
+2. Customer and return phones must contain 7–15 dialable digits with only
+   conventional phone punctuation. Values are normalized before storage and
+   URI construction. Invalid recipient data cannot create a card; legacy or
+   imported invalid data cannot render/log an SMS or email notification action.
+3. The cancellation `New time` label now obeys `hidden` and its input is not
+   required. Desktop and 390 px browser coverage verifies both states.
+4. `staticwebapp.config.json` now applies a same-origin CSP with
+   `frame-ancestors 'none'`, `X-Frame-Options: DENY`, COOP, Permissions-Policy,
+   immutable one-year caching for built assets/icons, `no-cache` for `sw.js`,
+   and `application/manifest+json` for `.webmanifest`.
 
-## What shipped
+The CSP follow-through removed inline fallback styles/handlers. The service
+worker/cache and manifest start URL moved to v2 so existing installed clients
+discover the repair. The visual thesis, local-first data model, free workflow,
+Plus contract, and all previously passing behavior were preserved.
 
-- A Vite + TypeScript installable PWA whose production output is `dist/`.
-- Manual appointment entry and first-event `.ics` import for reschedules and
-  cancellations.
-- Private confirmation cards encoded in URL fragments. Customer phone/email are
-  excluded from shared links; every link has an explicit expiry.
-- User-controlled SMS and email composer links. The log accurately calls these
-  notification attempts rather than claiming carrier delivery.
-- Customer acknowledgement and a token-matched, timestamped return receipt that
-  the originating device imports into its local audit trail.
-- IndexedDB persistence, 30-day notification coverage, status history, manual
-  acknowledgement labeling, delete confirmation, JSON backup/restore, and CSV
-  export.
-- Service-worker shell caching, offline fallback, install prompt, update notice,
-  versioned cache, and responsive 390 px layout.
-- Move Confirmed Plus ($29 one time): Sociobot checkout/verification contract,
-  returned-license storage, once-daily verification cache, restore form, offline
-  optimistic unlock, saved business defaults, and custom templates. Core cards,
-  receipts, safety, and exports remain free.
-- `/privacy/` and `/terms/`, MIT license, README, and product-specific design
-  documentation.
-- Original art-deco transit poster hero, generated with the factory Azure image
-  model on 2026-08-28. Source/prompt live in `assets/src/`; 768 px and 1280 px
-  WebP derivatives are 26 KB and 76 KB.
+## Exact regression coverage
 
-## Run and verify
+- Unit tests cover phone normalization/rejection and both genuine delayed and
+  hand-crafted post-expiry receipts.
+- Deployment tests parse the shipped SWA configuration and require CSP,
+  anti-framing, COOP, manifest MIME, immutable asset caching, and worker
+  revalidation.
+- Playwright exercises the two receipt attacks, the verifier's exact
+  `not-a-number` / `reply` input, absence of card/log creation, cancellation
+  visibility, and skip-link focus. Every browser test runs in desktop Chromium
+  and at 390 × 844.
+
+## Clean local verification — 2026-08-28 UTC
+
+Run from the repository root:
 
 ```bash
-npm install
+npm ci
+npm audit --omit=dev
 npm test
+npx tsc --noEmit
 npm run build
 npm run test:e2e
 ```
 
-Required build command: `npm run build`. It produces `dist/index.html` plus the
-legal routes and PWA assets.
+Results:
 
-Verification completed on 2026-08-28:
+- Clean install: 61 packages; 0 audit vulnerabilities.
+- Vitest: 9/9 passed across 2 files.
+- TypeScript: passed with no diagnostics. There is no separate lint script;
+  the static TypeScript project is checked by `tsc --noEmit` and the build.
+- Production build: passed; `dist/index.html` exists. Initial JS is 33.90 KB
+  (11.24 KB gzip), CSS is 15.95 KB (4.26 KB gzip), and the largest image is
+  77.45 KB. Package/consumer testing is not applicable to this private static
+  PWA.
+- Playwright 1.58.2: 16/16 passed across desktop Chromium and 390 × 844 mobile.
+  Coverage includes the full receipt round trip, all four repaired findings,
+  IndexedDB persistence, keyboard focus, Axe, and explicit offline reload.
+- `/opt/fleet/lib/verify-url.sh` against the SWA emulator: HTTP 200; title,
+  `lang`, one `h1`, `main`, image alt text, button names, and zero console errors.
+- Axe 4.10.2: zero serious/critical findings on both owner and public card views.
+- Privacy/browser audit: requests used only the first-party origin; card URLs
+  excluded customer phone/email; no page or console errors. At 390 px there was
+  no horizontal overflow and body text was 16 px. Reduced-motion transitions
+  were 0.01 ms.
+- Offline/update: controlled offline reload passed in both Playwright projects.
+  A controlled service-worker byte-change simulation retained control and
+  displayed `An update is ready. Reload to use it.` with zero errors.
+- Final local Lighthouse 13.0.1: Performance 100, Accessibility 100, Best
+  Practices 100; LCP 1.8 s, CLS 0, TBT 0 ms.
 
-- `npm test`: 4/4 unit tests passed.
-- `npm run test:e2e`: 6/6 passed across desktop Chromium and a 390 × 844 mobile
-  viewport, including the complete acknowledgement round trip, Axe, and an
-  explicit `context.setOffline(true)` reload.
-- Axe 4.10: no serious or critical violations, including color contrast.
-- `/opt/fleet/lib/verify-url.sh`: HTTP 200, title/lang/main present, one `<h1>`,
-  zero missing image alts, zero unlabeled buttons, and zero console errors.
-- Lighthouse 13.4.1 mobile against the production preview: Performance 99,
-  Accessibility 100, Best Practices 100; LCP 1.6 s, CLS 0, TBT 90 ms.
-- Built initial assets: JS 32.44 KB (10.70 KB gzip), CSS 15.86 KB (4.24 KB
-  gzip), largest hero 76 KB. No runtime third-party scripts, fonts, or analytics.
-- `npm audit --omit=dev`: zero vulnerabilities (full audit also zero after
-  updating Vite and Vitest to patched releases).
+## Live deployment evidence — 2026-08-28 UTC
 
-## Known gaps and honest boundaries
+- `/`, `/privacy/`, `/terms/`, manifest, service worker, JS, and CSS returned
+  HTTP 200 over HTTPS.
+- Live browser audit repeated malformed-phone rejection, expired receipt
+  rejection, cancellation hiding, skip-link focus, owner/card Axe, 390 px
+  overflow, privacy-origin, and controlled offline reload checks: all passed;
+  zero console/page errors.
+- Live Lighthouse 13.0.1: Performance 100, Accessibility 100, Best Practices
+  100; LCP 1.1 s, CLS 0.003, TBT 70 ms.
+- Live headers include CSP, `frame-ancestors 'none'`, X-Frame-Options DENY,
+  COOP same-origin, HSTS, nosniff, and Permissions-Policy. Hashed JS/CSS return
+  `Cache-Control: public, max-age=31536000, immutable`; `sw.js` returns
+  `no-cache`; the manifest returns `application/manifest+json`.
+- Production billing identity check returned HTTP 200 with
+  `{ "valid": false, "reason": "invalid" }` for a deliberately invalid
+  `reschedule-proof` license, confirming the expected live product route.
+- Local/live artifact SHA-256 values match exactly:
+  - JS `app-3l0kob6R.js`:
+    `49b9c72fd29ba1a78f94a796749cd825c27cbfea5ae2655fcbdcc2a44e3749f5`
+  - CSS `app-CCKNEVIM.css`:
+    `313631b7b379e7f696aab7ad2661b1ae3cf8c03c7bd6756fb2be73d8189c752f`
+  - `sw.js`:
+    `4d70b36253f62341e8832458f6c19468d0167f3e63191a8d77814a569778e327`
+  - `manifest.webmanifest`:
+    `2db6b61e861c70e0764e0e13ea40bb9223c6608a4282685f11076c085b0e5f1d`
 
-- Static hosting deliberately has no contact-data backend. The customer must
-  return the prepared receipt and the business must open it on the device that
-  created the card; there is no silent cross-device synchronization.
-- A notification entry proves that the composer was opened or the link copied,
-  not that an SMS/email carrier delivered it. The UI and terms state this.
-- Anyone holding an unexpired private card can produce its matching receipt; it
-  is proof of link possession, not identity verification. Use is unsuitable for
-  emergency, medical, regulated, or legally required notices.
-- `.ics` import intentionally handles the first event and common UTC/floating
-  date-time forms. Recurrence expansion and named-timezone rules remain with the
-  user’s existing calendar.
-- The factory must register the billing product and may set
-  `VITE_BILLING_API_URL=https://pilot-api.sociobot.in/api/v1` for staging. The
-  source contains the required slug but no provider product ID or secret.
+## Known boundaries
 
-## Suggested next steps
+- This remains an intentionally static, local-first PWA. Receipts must be
+  returned to the originating device; there is no silent cross-device sync.
+- A notification entry means a composer was opened or a link copied, not
+  carrier delivery. A receipt proves possession of the private link, not legal
+  identity. The product remains unsuitable for emergency, medical, regulated,
+  or legally required notices.
+- `.ics` import intentionally reads the first event and does not expand
+  recurrence or named-timezone rules.
 
-Run the 30-day pilot against the visible 90% notification target, gather disputed
-change reasons, and only then consider an optional privacy-preserving sync relay.
-Do not add automated outbound messaging unless consent and delivery semantics can
-be represented honestly.
+No release-blocking findings remain from `.factory/verification.md`.

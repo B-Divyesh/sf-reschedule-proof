@@ -57,10 +57,10 @@ base for staging with `VITE_BILLING_API_URL=https://pilot-api.sociobot.in/api/v1
 
 ## Deployment
 
-Deploy the contents of `dist/` to a static host with HTTPS. Configure clean URL
-directory serving for `/privacy/` and `/terms/`; no SPA fallback is needed for
-customer cards because they use URL fragments on `/`. The factory owns DNS and
-deployment configuration.
+Deploy the contents of `dist/` to Azure Static Web Apps with HTTPS. The build
+includes `staticwebapp.config.json` for clean routes, response hardening,
+manifest MIME, service-worker revalidation, and immutable built-asset caching.
+Customer cards use URL fragments on `/`. The factory owns DNS and deployment.
 
 ## License
 
