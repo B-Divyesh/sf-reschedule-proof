@@ -5,7 +5,7 @@
 - Work order: `reschedule-proof-repair-2`
 - Base/report commit: `088ad6f001670b79de8ce85b4b4300f3a345b15e`
 - Failed candidate: `3454aec2cedc0f31b595d74b866b1886d2ee7c5c`
-- Repair commit: `7eea9ebc2423ca6fa51cdaa980f7e03e801a822d` (amended below to include this handoff)
+- Repair code commit: `7eea9ebc2423ca6fa51cdaa980f7e03e801a822d`
 - Independent report: `.factory/verification-2.md`
 - Product and deployment class: Move Confirmed, static local-first PWA
 - Production URL: https://reschedule-proof.sociobot.in/
@@ -100,9 +100,25 @@ request abuse of the external endpoint. Per repository rules, no billing or
 infrastructure change was made. The billing platform must add and verify the
 server-side per-client/token rate limit before a full release verdict.
 
-## Deployment and post-deploy verification
+## Deployment and post-deploy verification — 2026-08-28 UTC
 
-The repair artifact is committed and pushed to `main`, then deployed to the
-existing Azure Static Web App using the configured `sf-reschedule-proof` target.
-Post-deploy identity, headers, browser/PWA behavior, and the external billing
-rate-limit dependency should be rechecked against the commit hash below.
+- Pushed `main` through handoff commit `9a09473c` and deployed `dist/` to the
+  existing Azure Static Web App target `sf-reschedule-proof` (production). The
+  deployment completed successfully at
+  `https://brave-smoke-0ea15c610.7.azurestaticapps.net`; the configured custom
+  origin is https://reschedule-proof.sociobot.in/.
+- Live identity matched the local app artifact byte-for-byte:
+  `dist/assets/app-BhEwXpFP.js` and the deployed asset both SHA-256 to
+  `c2d2d1ad708a7c0c80f011741584e560cffd7054a721f4b1d4205cf7e767ee4e`.
+  The local/deployed service worker SHA-256 is
+  `4d70b36253f62341e8832458f6c19468d0167f3e63191a8d77814a569778e327`.
+- Live `/`, app JS, `sw.js`, and manifest returned HTTP 200. The app asset was
+  `public, max-age=31536000, immutable`; worker was `no-cache`; manifest was
+  `application/manifest+json`. CSP includes `frame-ancestors 'none'`, with
+  X-Frame-Options DENY, COOP same-origin, HSTS, nosniff, Referrer-Policy, and
+  Permissions-Policy present.
+- Live `verify-url.sh` found zero page/console errors, valid title/lang/one
+  h1/main/alt structure, and zero unnamed buttons. A 390 × 844 Playwright
+  smoke had service-worker control, an offline reload showing the owner h1,
+  390 px document width (no overflow), only the first-party origin requested,
+  and zero serious/critical Axe findings on owner, Privacy, and Terms.
