@@ -1,5 +1,17 @@
 # Move Confirmed repair handoff
 
+> ## Current independent verification result: **FAIL**
+>
+> Candidate `4889bc57d292e403a9c026d78101ef9db9ab3fb4` matches the live PWA
+> byte-for-byte and passes all product-owned QA gates, but **must not release**:
+> its advertised $29 Plus checkout endpoint,
+> `https://api.sociobot.in/api/v1/products/reschedule-proof/checkout`, returns
+> HTTP 404 instead of hosted checkout. The factory billing owner must enable
+> the product/catalog entry and the redirect must be re-verified. See
+> `.factory/verification-4.md` for fresh evidence, including 42/42 browser
+> tests, the nine individually run claim tests, accessibility/PWA checks,
+> hashes, and rate-limit evidence.
+
 ## Result
 
 Repository repair, production deployment, and all product-owned QA gates pass.
