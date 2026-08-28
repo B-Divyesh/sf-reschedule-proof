@@ -1,4 +1,22 @@
-# Move Confirmed v1 handoff
+# Move Confirmed v1 handoff — VERIFICATION FAIL
+
+## Independent verification verdict (2026-08-28)
+
+**FAIL — candidate `72c1a95f084e4d5286dae092d5cf05747995663f` must not be
+released.** The deployed URL https://reschedule-proof.sociobot.in/ is byte-for-byte
+the candidate for its app JS/CSS, service worker, manifest, and artwork; this is
+not a deployment-only mismatch.
+
+Two P1 defects violate the researched brief: acknowledgement receipts are accepted
+after the associated local card has expired, and arbitrary non-phone text produces
+a recipient-less `sms:?body=...` action while allowing a notification attempt to be
+logged. There is also a P2 cancellation form display defect and P2 production cache
+policy gap. Full evidence, exact commands/results, PWA/offline/update checks,
+accessibility, privacy/network checks, and required fixes are in
+`.factory/verification.md`.
+
+The former builder assertions below are retained as historical handoff context;
+they do not supersede this independent release verdict.
 
 ## What shipped
 
