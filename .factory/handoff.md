@@ -1,73 +1,66 @@
 # Move Confirmed repair handoff
 
-> ## Current independent verification result: **FAIL**
+> ## Current release status: **BLOCKED by central billing registration**
 >
-> Candidate `4889bc57d292e403a9c026d78101ef9db9ab3fb4` matches the live PWA
-> byte-for-byte and passes all product-owned QA gates, but **must not release**:
-> its advertised $29 Plus checkout endpoint,
-> `https://api.sociobot.in/api/v1/products/reschedule-proof/checkout`, returns
-> HTTP 404 instead of hosted checkout. The factory billing owner must enable
-> the product/catalog entry and the redirect must be re-verified. See
-> `.factory/verification-4.md` for fresh evidence, including 42/42 browser
-> tests, the nine individually run claim tests, accessibility/PWA checks,
-> hashes, and rate-limit evidence.
+> The deployed PWA and all product-owned checks pass. The advertised Plus
+> checkout still cannot start because the mandated central endpoint returns
+> HTTP 404. The registration metadata required by the separate billing operator
+> is ready at `/work/.evidence/billing-offer.json`.
 
-## Result
+## Job, audience, and first action
 
-Repository repair, production deployment, and all product-owned QA gates pass.
-One external release blocker remains: the central Sociobot billing catalog has
-no enabled `reschedule-proof` product, so its production checkout still returns
-404. The worker image does not contain the paid-product registration helper
-named by the supplied contract, and repository policy forbids replacing it with
-an ad-hoc provider or billing-infrastructure mutation.
+Move Confirmed creates a private change card and records a returned customer
+acknowledgement. It is for one-person appointment businesses. On the first
+screen, select **Try it with sample data** to open three realistic changes in a
+separate demo log.
 
-- Work order: `reschedule-proof-repair-3`
-- Failed candidate: `4308e1220b1d4c1f0ea6bff0b06d4a2d53a559b1`
-- Verifier report: `.factory/verification-3.md`
-- Repair commits: `abadaf3`, `224079e`, `da05d8a`, `8c69910`
-- Product/deployment class: static local-first PWA
-- Production URL: https://reschedule-proof.sociobot.in/
+## Implementation and deployment
 
-## Repaired findings
+- Implementation SHA: `1cac54e64b566487ce2f276167f10b22f3eea464`
+  (`fe012d263d782f4bc7e698b63c1f14e9f1dcf729` contains the visible copy and
+  404 recovery changes; `1cac54e` advances the PWA shell to v5).
+- Previous report-only documentation SHA: `7b8e5e5175c75f4effce666d47e8a84622e70c2b`.
+- Deployment: existing `sf-reschedule-proof` Azure Static Web App in
+  `centralus`, deployed twice successfully with its existing configuration and
+  `https://reschedule-proof.sociobot.in` ready over HTTPS.
+- Live build identity: app JS `app-CtC1JWA8.js`, SHA-256
+  `1fb824cb96412ce47cdb5bfa25cdaff1fb3b2744f8449fed79ab056eeb48e349`;
+  worker SHA-256 `d82502f0bd7c47dcb30d47a68b047b52edb394543cab4dc86636d3cdf1da737f`;
+  manifest SHA-256 `fef0d4ed3a590bfb3ad9c9f9cb3f3fd6c3e3dffc082dadb0f5b80abdc2937802`.
 
-1. Added `.factory/claims.json` with nine claims and exactly one tagged browser
-   test per claim. Each declared command passed independently in Chromium and
-   the 390 × 844 mobile project.
-2. Added a one-click `/demo` with three realistic records, a persistent banner,
-   reset and start-real actions, demo-only Plus preview, and the isolated
-   `move-confirmed-demo` IndexedDB namespace. Demo card/receipt links retain the
-   sandbox route; leaving through **Start for real** deletes demo storage.
-3. Reworked the first screen to name one-person appointment businesses, keep
-   the primary sample action visible at 1440 × 900 and 390 × 844, state three
-   concrete facts, and explain the click outcome. Added `.factory/demo.md` and
-   `.factory/copy-audit.md`.
-4. Stopped the invalid-license render cycle with one-shot/in-flight guards. The
-   regression waits for a false verdict, observes zero mutations for 300 ms,
-   submits the free change form, reloads, and confirms only one verification
-   request occurred.
-5. Added canonical/Open Graph/Twitter metadata, a 1200 × 630 social image,
-   180 px Apple touch icon, `robots.txt`, `sitemap.xml`, consistent navigation,
-   Param Factory/build identity, How it works and limits sections, and a styled
-   HTTP 404 route.
-6. Raised the skip and footer link targets to at least 44 × 44 CSS px. The
-   deferred demo control also has an explicit accessible name.
-7. Split below-fold rendering into short tasks. Three cold Lighthouse 13.4.1
-   mobile runs scored 98/99/99 Performance, 100 Accessibility, and 100 Best
-   Practices. LCP was 1.55–1.60 s, TBT 65–165 ms, and CLS 0.
-8. Advanced the service-worker/manifest shell identity to v4 and precached the
-   demo, 404, social image, and Apple icon. Offline demo reload and controlled
-   update discovery both pass.
-9. Kept deferred controls inert until their event handlers are attached. The
-   formerly intermittent mobile receipt path passed five consecutive focused
-   runs before the complete suite passed.
+## Completed in repair 4
 
-Earlier passing behavior is preserved: end-to-end change/receipt import,
-expired-receipt rejection, phone validation, cancellation behavior, safe backup
-replacement, privacy-preserving URL fragments, and local exports.
+1. Replaced remaining transit-metaphor and mood language with direct task
+   language. The missing-page screen now says what happened and returns to the
+   app; its browser regression checks the recovery path rather than source text.
+2. Added `.factory/catalog-description.txt`: “Create private proof cards for
+   changed appointments.” It is verb-first, plain, 52 characters, and copied
+   unchanged to `/work/.evidence/catalog-description.txt`.
+3. Prepared `/work/.evidence/billing-offer.json` for the billing-registration
+   operator: the real slug, **Move Confirmed Plus**, 2900 USD minor units,
+   `one_time_price`, exact production return URL, paid features, price evidence,
+   and product license-verification path. It contains no credentials.
+4. Advanced the service-worker cache from v4 to v5 and matched the manifest
+   start URL (`/?v=5`). This ensures installed clients obtain the changed shell
+   rather than retaining the prior v4 cache.
 
-## Exact verification evidence
+## Earlier findings and current disposition
 
-Run from a clean install with Node 22 and Playwright 1.58.2:
+| Earlier finding | Current disposition |
+| --- | --- |
+| Expired cards accepted a receipt | Fixed; delayed and hand-crafted expired receipts are rejected in unit and browser tests. |
+| Invalid phone text could log a handoff | Fixed; 7–15 digit recipient validation rejects invalid values before a record is written. |
+| Cancellation displayed New time | Fixed and browser-tested as hidden and not required. |
+| Immutable caching, CSP, framing, COOP, manifest MIME | Fixed; live headers and cache policies are present. |
+| Invalid backup could replace real proof | Fixed; validation occurs before the replacement confirmation and tests prove the old record remains. |
+| Inactive license rendered indefinitely | Fixed; the false-verdict state is stable and the free form remains usable. |
+| Claims, sample demo, first-screen explanation, metadata, 404, targets | Fixed; all nine declared claims and the 44-test browser suite pass. |
+| Billing verify endpoint lacked a burst limit | Fixed centrally; final probe first returned 429 on request 31 with `Retry-After: 3`. |
+| Plus checkout returned 404 | **Still blocked externally.** The client link is the mandated endpoint, but the central billing catalog has no enabled product entry. |
+
+## Verification
+
+From a clean install with Node 22 and Playwright 1.58.2:
 
 ```bash
 npm ci
@@ -80,60 +73,36 @@ npm run build
 npm run test:e2e
 ```
 
-- Dependency audits: 0 vulnerabilities.
-- Vitest: 15/15 passed.
-- TypeScript/lint: passed with no diagnostics.
-- Production build: passed with `dist/index.html` at the root.
-- Playwright: 42/42 passed across desktop Chromium and 390 × 844 mobile.
-- Every command in `.factory/claims.json`: passed independently in both
-  projects.
-- Initial app JS: 41.80 KB / 13.55 KB gzip. CSS: 19.02 KB / 4.85 KB gzip.
-  Largest responsive hero: 77.45 KB; mobile hero: 26.33 KB.
-- Axe 4.10.2: zero serious/critical findings on Home, Demo, Privacy, Terms, and
-  404 in both projects.
-- Factory URL checks: correct title/lang, one h1/main, image alt text, named
-  buttons, and zero page/console errors. Mobile width equals 390 px; body text
-  is 16 px; repaired skip and Terms targets are at least 44 px.
-- PWA: service-worker-controlled demo reload retained all sample records while
-  offline. A changed worker installed and displayed “An update is ready. Reload
-  to use it.”
-- Azure Static Web Apps emulator: `/demo`, Privacy, Terms, robots, and sitemap
-  return 200; an unknown route returns the styled 404 page with HTTP 404.
-- Production response policy: CSP/`frame-ancestors`, HSTS, COOP, frame denial,
-  `nosniff`, Referrer-Policy, Permissions-Policy, immutable hashed assets, and a
-  `no-cache` worker are present.
-- Production verify rate limit: requests 1–30 returned 200; request 31 returned
-  429 with `Retry-After: 3`.
-- Package/consumer checks are not applicable to this private static PWA.
+- Clean install and both audits: 0 vulnerabilities.
+- `npm test`: 15/15 passed. Typecheck, lint, and production build passed.
+- Each of the nine exact commands in `.factory/claims.json` was run separately
+  against the final v5 build; each passed in desktop and 390 × 844 mobile
+  Chromium.
+- Full Playwright suite: 44/44 passed.
+- Built initial app JS is 41.83 KB / 13.51 KB gzip; CSS is 19.02 KB / 4.85 KB
+  gzip. The largest hero is 77.45 KB and the mobile hero is 26.33 KB.
+- Final live `verify-url.sh` check passed: HTTPS 200, title/lang, one h1/main,
+  image alt text, named buttons, zero console/page errors, 754 ms load.
+- Fresh live desktop and mobile contexts confirmed the job, audience, and
+  first action before scrolling. Both entered `/demo`, displayed piano lesson,
+  bike service pickup, and dog grooming, kept the demo banner visible, reset
+  from two records to three, and left the real database at zero records.
+- Live Axe scans on Home, Demo, Privacy, Terms, and 404 found zero violations
+  at both viewport sizes. Unknown routes return HTTP 404 with the designed
+  recovery page.
+- A fresh mobile browser was controlled by `move-confirmed-v5`, then reloaded
+  the populated demo offline with **Offline ready** and no errors.
+- Lighthouse 13.4.1 mobile on the final live build: Performance **100**,
+  Accessibility **100**, LCP **1.14 s**, CLS **0**, TBT **0 ms**.
 
-## Deployment and identity
-
-The repaired PWA was deployed to existing Azure Static Web App
-`sf-reschedule-proof` in `centralus`; the custom domain is Ready.
-
-- `dist/assets/app-1mKBtZig.js` and live:
-  `81883baa7023785c1639aacd1e622ab5a3eeeb3c6304bf939913d29f83d7ec65`
-- `dist/sw.js` and live:
-  `d491841088e11d853376d6ff31d2b4975abcd67dad494c850b2accfcda3fcbee`
-- `dist/manifest.webmanifest` and live:
-  `f7156582d1b1b2423c483e7fc2c8be8ca3e35617449cbe6bad104cf67c616650`
-- `dist/index.html` and live:
-  `82ffd9fe62157b20a8beb189a260ab74ec821099de4ca89343a657f0ecff49c1`
-
-The live demo is service-worker controlled, reloads offline, has no horizontal
-overflow, and has zero serious/critical Axe findings. A live invalid-license
-probe made one verification request, reached the persistent inactive notice,
-stayed at zero DOM mutations during the stability window, and accepted input in
-the free form.
-
-## External blocker and next step
+## Remaining blocker and next step
 
 `GET https://api.sociobot.in/api/v1/products/reschedule-proof/checkout` still
 returns HTTP 404 with `{"error":"enabled factory product","status":404}`.
-The central `/api/v1/products` catalog has no `reschedule-proof` entry. The
-required `/opt/fleet/new-paid-product.sh` helper is absent from this worker image
-(the available `/opt/fleet/lib` contains only deployment, verification, and
-media helpers). No direct Dodo integration or database/billing mutation was
-performed. The factory billing owner must register the live $29 one-time product
-with return URL `https://reschedule-proof.sociobot.in/`; after that, repeat the
-checkout redirect check before release.
+This is outside the static product repository and cannot be corrected by a
+client-side fallback without inventing a payment flow. The billing operator
+must register and enable the one-time offer in
+`/work/.evidence/billing-offer.json` with return URL
+`https://reschedule-proof.sociobot.in/`. Then repeat the checkout redirect and
+license-return/verification path before release. The free local-first workflow,
+exports, and acknowledgement safety behavior remain available.
