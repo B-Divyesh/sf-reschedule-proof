@@ -20,6 +20,7 @@ separate demo log.
   (`fe012d263d782f4bc7e698b63c1f14e9f1dcf729` contains the visible copy and
   404 recovery changes; `1cac54e` advances the PWA shell to v5).
 - Previous report-only documentation SHA: `7b8e5e5175c75f4effce666d47e8a84622e70c2b`.
+- Repair verification documentation SHA: `9c68641dc19e307d63786ea857f4597fa7f58ce0`.
 - Deployment: existing `sf-reschedule-proof` Azure Static Web App in
   `centralus`, deployed twice successfully with its existing configuration and
   `https://reschedule-proof.sociobot.in` ready over HTTPS.
