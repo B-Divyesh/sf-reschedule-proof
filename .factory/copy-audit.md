@@ -29,8 +29,10 @@ in one breath and are visible at 390 × 844.
 | Copy | Words |
 | --- | ---: |
 | Is every change visible? | 4 |
+| Last 30 days. | 3 |
 | Target: log a notification for at least 90% of changed appointments. | 11 |
 | How the change reaches your log. | 7 |
+| Three steps. | 2 |
 | Prepare the change. | 3 |
 | Enter an appointment or import its calendar event. | 8 |
 | Open the message. | 3 |
@@ -48,14 +50,14 @@ in one breath and are visible at 390 × 844.
 | Customer contact details never appear in shared card links. | 9 |
 | Export anytime. | 2 |
 | Import replaces the current local log only after you confirm. | 10 |
-| A handoff tool, not another calendar. | 6 |
+| What Move Confirmed does not do. | 6 |
 | Move Confirmed does not book appointments, send messages, prove carrier delivery, or replace your calendar. | 15 |
 | It keeps appointment and customer data in this browser. | 9 |
 | Shared cards exclude the customer’s phone number and email address. | 10 |
 | The free change card, acknowledgement receipt, offline log, and all exports stay free. | 13 |
 | Plus saves reusable business defaults and a custom message template. | 10 |
 | No subscription. | 2 |
-| One payment unlocks Plus on your devices. | 7 |
+| One payment enables Plus on your devices. | 7 |
 | Checkout is hosted by Sociobot/Dodo, the merchant of record. | 9 |
 
 ## Empty and demo states
@@ -67,6 +69,11 @@ in one breath and are visible at 390 × 844.
 | Demo — sample data, nothing is saved to your real log. | 10 |
 | Reset demo. | 2 |
 | Start for real. | 3 |
+| Create a change card. | 5 |
+| Where the receipt returns. | 5 |
+| Export or replace your local log. | 7 |
+| The artwork shows the old and new appointment times linked by a confirmation seal. | 13 |
+| This page was not found. | 5 |
 
 ## Terminology
 

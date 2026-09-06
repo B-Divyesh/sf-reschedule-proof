@@ -82,6 +82,14 @@ test('moves keyboard focus from the skip link to the main task', async ({ page }
   await expect(page.locator('main')).toBeFocused();
 });
 
+test('gives a missing-page visitor a clear way back to the app', async ({ page }) => {
+  await page.goto('/404/');
+  await expect(page.getByRole('heading', { name: 'This page was not found.' })).toBeVisible();
+  await page.getByRole('link', { name: 'Return to Move Confirmed' }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('heading', { name: /Make appointment changes clear and confirmed/ })).toBeVisible();
+});
+
 test('@claim:offline-reload app shell and sample log work offline after installation', async ({ page, context }) => {
   await page.goto('/demo');
   await page.evaluate(() => navigator.serviceWorker.ready);

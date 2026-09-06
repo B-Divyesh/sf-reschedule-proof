@@ -14,7 +14,7 @@ let lastCreated: ChangeRecord | null = null;
 let licenseReconciled = false;
 let licenseReconciling = false;
 let ownerRenderVersion = 0;
-const BUILD_ID = 'repair-3';
+const BUILD_ID = 'repair-4';
 
 if (DEMO_MODE && location.pathname !== '/demo') history.replaceState({}, '', `/demo${location.hash}`);
 
@@ -55,9 +55,9 @@ function shell(content: string, mode: 'owner' | 'customer' = 'owner'): string {
     </header>
     <main id="main" tabindex="-1">${content}</main>
     <footer class="site-footer">
-      <div><strong>Move Confirmed</strong><span>Proof of change, kept on your device.</span></div>
+      <div><strong>Move Confirmed</strong><span>Private change records stay on your device.</span></div>
       <nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="https://github.com/B-Divyesh/sf-reschedule-proof" rel="noreferrer">Source (external)</a></nav>
-      <p class="generated-note">Built by Param Factory · Build ${BUILD_ID} · Poster artwork generated for this product with the factory image model.</p>
+      <p class="generated-note">Built by Param Factory · Build ${BUILD_ID} · Artwork generated for this product with the factory image model.</p>
     </footer>
     <div id="live-region" class="sr-only" aria-live="polite"></div>
     <div id="toast" class="toast" role="status" hidden></div>`;
@@ -140,7 +140,7 @@ function dashboard(records: ChangeRecord[]): string {
   const acknowledged = recent.filter((record) => record.acknowledgement).length;
   const percent = recent.length ? Math.round(notified / recent.length * 100) : 0;
   return `<section class="scoreboard" aria-labelledby="score-title">
-    <div><p class="eyebrow">30-day signal board</p><h2 id="score-title">Is every change visible?</h2></div>
+    <div><p class="eyebrow">Last 30 days</p><h2 id="score-title">Is every change visible?</h2></div>
     <dl><div><dt>Changes</dt><dd>${recent.length}</dd></div><div><dt>Notified</dt><dd>${notified}</dd></div><div><dt>Acknowledged</dt><dd>${acknowledged}</dd></div><div><dt>Coverage</dt><dd>${percent}%</dd></div></dl>
     <p class="score-note">Target: log a notification for at least 90% of changed appointments.</p>
   </section>`;
@@ -148,13 +148,13 @@ function dashboard(records: ChangeRecord[]): string {
 
 function howItWorks(): string {
   return `<section class="how-it-works" id="how" aria-labelledby="how-title">
-    <div><p class="eyebrow">Three stops</p><h2 id="how-title">How the change reaches your log</h2></div>
+    <div><p class="eyebrow">Three steps</p><h2 id="how-title">How the change reaches your log</h2></div>
     <ol><li><strong>Prepare the change.</strong><span>Enter an appointment or import its calendar event.</span></li><li><strong>Open the message.</strong><span>The app prepares SMS or email. You check it and press Send.</span></li><li><strong>Add the receipt.</strong><span>The customer returns a private receipt to your original device.</span></li></ol>
   </section>`;
 }
 
 function privacyAndLimits(): string {
-  return `<section class="limits" aria-labelledby="limits-title"><div><p class="eyebrow">Clear limits</p><h2 id="limits-title">A handoff tool, not another calendar</h2></div><p>Move Confirmed does not book appointments, send messages, prove carrier delivery, or replace your calendar. It keeps appointment and customer data in this browser. Shared cards exclude the customer’s phone number and email address.</p></section>`;
+  return `<section class="limits" aria-labelledby="limits-title"><div><p class="eyebrow">Clear limits</p><h2 id="limits-title">What Move Confirmed does not do</h2></div><p>Move Confirmed does not book appointments, send messages, prove carrier delivery, or replace your calendar. It keeps appointment and customer data in this browser. Shared cards exclude the customer’s phone number and email address.</p></section>`;
 }
 
 function createdPanel(record: ChangeRecord, settings: BusinessSettings, unlocked: boolean): string {
@@ -189,7 +189,7 @@ function createdPanel(record: ChangeRecord, settings: BusinessSettings, unlocked
 function formMarkup(settings: BusinessSettings): string {
   const expiry = new Date(Date.now() + 7 * 86_400_000);
   return `<section class="workbench" id="create" aria-labelledby="create-title">
-    <div class="section-intro"><p class="eyebrow">Prepare the handoff</p><h2 id="create-title">What changed?</h2><p>Import one calendar event or enter it manually. Fields marked * are required. Customer contact details stay in this browser.</p></div>
+    <div class="section-intro"><p class="eyebrow">Create a change card</p><h2 id="create-title">What changed?</h2><p>Import one calendar event or enter it manually. Fields marked * are required. Customer contact details stay in this browser.</p></div>
     <form id="change-form" novalidate>
       <div id="form-error" class="form-alert" role="alert" tabindex="-1" hidden></div>
       <fieldset class="type-switch"><legend>Change type *</legend>
@@ -208,7 +208,7 @@ function formMarkup(settings: BusinessSettings): string {
         <label class="wide">Location<input name="location" autocomplete="street-address" /></label>
         <label class="wide">Note for the customer<textarea name="note" rows="3" maxlength="280" placeholder="Parking, call link, or what stays the same"></textarea></label>
       </div>
-      <div class="form-divider"><span>Your return route</span></div>
+      <div class="form-divider"><span>Where the receipt returns</span></div>
       <div class="form-grid">
         <label>Business name *<input name="businessName" required value="${esc(settings.businessName)}" autocomplete="organization" /></label>
         <label>Your mobile<input name="replyPhone" type="tel" value="${esc(settings.replyPhone)}" autocomplete="tel" inputmode="tel" /></label>
@@ -222,7 +222,7 @@ function formMarkup(settings: BusinessSettings): string {
 }
 
 function dataTools(): string {
-  return `<section class="data-tools" aria-labelledby="data-title"><div><p class="eyebrow">Your records, your device</p><h2 id="data-title">Carry your log with you.</h2><p>Export anytime. Import replaces the current local log only after you confirm.</p></div><div class="tool-actions"><button id="export-json" class="secondary" type="button" aria-label="Export local log as JSON">Export JSON</button><button id="export-csv" class="secondary" type="button" aria-label="Export local log as CSV">Export CSV</button><label for="import-json" class="file-button">Import JSON</label><input id="import-json" type="file" accept="application/json,.json" /></div></section>`;
+  return `<section class="data-tools" aria-labelledby="data-title"><div><p class="eyebrow">Your records, your device</p><h2 id="data-title">Export or replace your local log</h2><p>Export anytime. Import replaces the current local log only after you confirm.</p></div><div class="tool-actions"><button id="export-json" class="secondary" type="button" aria-label="Export local log as JSON">Export JSON</button><button id="export-csv" class="secondary" type="button" aria-label="Export local log as CSV">Export CSV</button><label for="import-json" class="file-button">Import JSON</label><input id="import-json" type="file" accept="application/json,.json" /></div></section>`;
 }
 
 function plusMarkup(settings: BusinessSettings, unlocked: boolean, demoPreview = false): string {
@@ -239,7 +239,7 @@ function plusMarkup(settings: BusinessSettings, unlocked: boolean, demoPreview =
       <label>Default reply mobile<input name="replyPhone" type="tel" value="${esc(settings.replyPhone)}" /></label>
       <label>Default reply email<input name="replyEmail" type="email" value="${esc(settings.replyEmail)}" /></label>
       <label>Message template<textarea name="messageTemplate" rows="4" placeholder="Hi {customer}, your {appointment} has changed. Review: {link}">${esc(settings.messageTemplate)}</textarea></label>
-      <p class="field-hint">Available placeholders: {customer}, {appointment}, {change}, {link}.</p><button class="primary" type="submit" aria-label="Save Plus defaults">Save Plus defaults</button></form>` : `<div class="unlock-panel">${icon('lock')}<p>One payment unlocks Plus on your devices. Checkout is hosted by Sociobot/Dodo, the merchant of record.</p><a class="primary" href="${buyUrl()}">Buy Plus for $29</a><form id="license-form"><label for="license">Have a license? Paste it here</label><div class="copy-field"><input id="license" name="license" autocomplete="off" required /><button class="secondary" type="submit" aria-label="Restore pasted license">Restore</button></div><p id="license-status" class="field-hint" aria-live="polite">${licenseStatus}</p></form></div>`}
+      <p class="field-hint">Available placeholders: {customer}, {appointment}, {change}, {link}.</p><button class="primary" type="submit" aria-label="Save Plus defaults">Save Plus defaults</button></form>` : `<div class="unlock-panel">${icon('lock')}<p>One payment enables Plus on your devices. Checkout is hosted by Sociobot/Dodo, the merchant of record.</p><a class="primary" href="${buyUrl()}">Buy Plus for $29</a><form id="license-form"><label for="license">Have a license? Paste it here</label><div class="copy-field"><input id="license" name="license" autocomplete="off" required /><button class="secondary" type="submit" aria-label="Restore pasted license">Restore</button></div><p id="license-status" class="field-hint" aria-live="polite">${licenseStatus}</p></form></div>`}
   </section>`;
 }
 
@@ -253,7 +253,7 @@ async function renderOwner(): Promise<void> {
     ? `<div class="hero-actions"><a class="primary" href="#history">View the sample log ${icon('arrow')}</a><span>Three sample changes show prepared, notified, and confirmed states.</span><a class="secondary" href="#create">Try a new change</a></div>`
     : `<div class="hero-actions"><a class="primary" href="/demo">Try it with sample data ${icon('arrow')}</a><span>See three realistic changes in a separate demo log.</span><a class="secondary" href="#create">Prepare your change</a></div>`;
   app.innerHTML = shell(`
-    <section class="hero"><div class="hero-copy"><p class="route-kicker"><span>OLD TIME</span><i aria-hidden="true"></i><span>NEW TIME</span></p><h1>Make appointment changes clear and confirmed.</h1><p class="hero-lede">For one-person appointment businesses: send a private change card and keep the customer’s receipt beside your calendar.</p>${heroActions}${heroFacts}</div><figure class="hero-art"><picture><source srcset="/assets/move-confirmed-hero-768.webp 768w, /assets/move-confirmed-hero-1280.webp 1280w" sizes="(max-width: 760px) 100vw, 48vw" type="image/webp" /><img src="/assets/move-confirmed-hero-1280.webp" width="1280" height="853" fetchpriority="high" decoding="async" alt="Two stylized station clocks connected by a red and teal route ending in a confirmation seal" /></picture><figcaption>From changed stop to confirmed arrival.</figcaption></figure></section>
+    <section class="hero"><div class="hero-copy"><p class="route-kicker"><span>OLD TIME</span><i aria-hidden="true"></i><span>NEW TIME</span></p><h1>Make appointment changes clear and confirmed.</h1><p class="hero-lede">For one-person appointment businesses: send a private change card and keep the customer’s receipt beside your calendar.</p>${heroActions}${heroFacts}</div><figure class="hero-art"><picture><source srcset="/assets/move-confirmed-hero-768.webp 768w, /assets/move-confirmed-hero-1280.webp 1280w" sizes="(max-width: 760px) 100vw, 48vw" type="image/webp" /><img src="/assets/move-confirmed-hero-1280.webp" width="1280" height="853" fetchpriority="high" decoding="async" alt="An illustration of old and new appointment times linked by a confirmation seal" /></picture><figcaption>The artwork shows the old and new appointment times linked by a confirmation seal.</figcaption></figure></section>
     ${dashboard(records)}
     <div id="owner-lower" class="owner-lower" aria-busy="true" inert></div>
   `);
